@@ -1,4 +1,7 @@
 import type { TenureMonths } from "@/data/config";
+import type { OrderStatus, TimelineEntry } from "@/lib/orderFlow";
+
+export type { OrderStatus, TimelineEntry };
 
 export type OrderLine = {
   productId: string;
@@ -8,8 +11,6 @@ export type OrderLine = {
   rentPerMonth: number;
   deposit: number;
 };
-
-export type OrderStatus = "Scheduled" | "Delivered" | "Closed" | "Cancelled";
 
 export type Order = {
   id: string;
@@ -27,6 +28,10 @@ export type Order = {
   rentPerMonth: number;
   deposit: number;
   status: OrderStatus;
+  /** What happened to the order and when, oldest first. */
+  timeline: TimelineEntry[];
+  /** Who is bringing it, filled in when the order goes out for delivery. */
+  partner: { name: string; phone: string } | null;
 };
 
 export function newOrderId() {

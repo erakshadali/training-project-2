@@ -45,6 +45,20 @@ With no `MONGODB_URI` the dev server starts a temporary in-memory MongoDB, seeds
   - **Customers**: list with order counts, suspend or restore accounts (admins are protected)
   - **Areas**: switch delivery cities on or off or add new ones. At least one city must stay active
 
+## Order pipeline
+
+Every order moves through five steps, and every step is recorded with the time and who did it:
+
+`Placed` (customer checks out) -> `Confirmed` (admin) -> `Packed` -> `Out for delivery` (with the delivery person's name and phone) -> `Delivered`
+
+An order can also be `Cancelled` (rejected by the admin with a reason, or cancelled by the customer before delivery) and becomes `Closed` once every item has been returned.
+
+- **Customer:** the order page shows a live tracker (it refreshes itself every 30 seconds), the delivery person, the full history, and a printable invoice at `/orders/<id>/invoice`.
+- **Admin:** the **Orders** tab lists every order with search and status filters. Open an order to see the customer's phone, email and address, the items, the tracker and the history. One button moves it to the next step. The admin can also reject or cancel with a reason (stock goes back on the shelf), change the delivery date and slot, and add the delivery person.
+- **Rules the server enforces:** steps cannot be skipped, an order cannot be cancelled after delivery, a delivered order cannot be changed, two admins clicking at once cannot apply a step twice, and an item can only be marked delivered from the Schedule board once its order is out for delivery.
+
+Run `node scripts/api-test-orders.mjs http://localhost:3000` (it needs `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env.local`) to check the whole pipeline end to end: 42 checks.
+
 ## Room Studio (`/room-studio`)
 
 Upload a photo of an empty hall and try furniture in it, in 3D, at its real size.
@@ -79,6 +93,8 @@ guarantee. Three.js loads only when the studio opens.
 | POST / DELETE | `/api/rentals/[id]/return` | Schedule, change or cancel a pickup |
 | POST | `/api/rentals/[id]/cancel` | Cancel before delivery |
 | GET / POST | `/api/maintenance` | List or raise repair requests |
+| GET | `/api/admin/orders` | Admin: every order, newest first |
+| POST | `/api/admin/orders/[id]` | Admin: `confirm`, `pack`, `dispatch`, `deliver`, `cancel` or `reschedule` an order |
 | GET / POST | `/api/layouts` | List or save Room Studio layouts (max 5 per customer) |
 | GET / PUT / DELETE | `/api/layouts/[id]` | Open, update or delete one saved layout |
 | GET | `/api/claims` | Your damage claims |
@@ -108,7 +124,7 @@ All `/api/admin/*` routes return 401 when logged out and 403 for customers.
 ## Tests and checks
 
 ```bash
-npm test            # 47 unit tests: pricing, plan dates, tiers, refunds, Room Studio camera math, overlap, colour scoring
+npm test            # 66 unit tests: pricing, plan dates, tiers, refunds, Room Studio camera math, overlap, colour scoring
 npm run typecheck   # strict TypeScript
 npm run lint        # ESLint
 BASE_URL=http://localhost:3000 bash scripts/api-test-admin.sh     # end-to-end API tests (needs a running server)

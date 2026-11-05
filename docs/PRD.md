@@ -93,6 +93,21 @@ Challenges faced by renters today:
 | U10 | Cancel an item before delivery (free, until the day before) | Done |
 | U11 | See the deposit refund after a return, view damage charges and dispute them | Done |
 
+### 6.1a Order pipeline and admin tracking
+
+| ID | Requirement | Status |
+| --- | --- | --- |
+| O1 | A new order starts as Placed and waits for the admin to confirm it | Done |
+| O2 | Orders move Placed, Confirmed, Packed, Out for delivery, Delivered, with no skipped steps | Done |
+| O3 | Every step is recorded with the time and who did it, and customers see it as a live tracker | Done |
+| O4 | The admin has an Orders tab with search, status filters, customer contact details and the items | Done |
+| O5 | The admin can reject or cancel an order with a reason, and stock is restored once | Done |
+| O6 | The admin can change the delivery date and slot until the order leaves | Done |
+| O7 | The delivery person's name and phone are shown to the customer when the order is out for delivery | Done |
+| O8 | A printable invoice for every order | Done |
+| O9 | Email, SMS or WhatsApp messages at each step | Not built (needs a sending account) |
+| O10 | A real payment gateway and refund payout | Not built |
+
 ### 6.1b Room Studio (extra feature beyond the brief)
 
 | ID | Requirement | Status |

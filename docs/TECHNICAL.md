@@ -133,6 +133,18 @@ Customer routes need a session cookie. `/api/admin/*` routes return 401 when log
 | GET, POST | `/api/admin/areas` | List or add cities |
 | PATCH | `/api/admin/areas/[id]` | `{ active }`. At least one city must stay active |
 
+### 5a. Order pipeline
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| State machine | `lib/orderFlow.ts` | Pure functions: which action is allowed from which status, the five tracker steps, and a built history for orders saved before the pipeline existed (`Scheduled` means `Confirmed`). Unit tested |
+| Server helpers | `lib/orderServer.ts` | Deliver, cancel and reschedule every undelivered item of an order, each safe to repeat |
+| Admin API | `api/admin/orders`, `api/admin/orders/[id]` | List orders, and apply one action. The update filters on the current status, so two admins cannot both apply a step |
+| Timeline | `timeline` on the `Order` document | `{ status, at, by, note }` entries, oldest first, plus `partner` for the delivery person |
+| Screens | `components/OrderTracker.tsx`, `admin/Orders.tsx`, `OrderViews.tsx` | The tracker (shared by customer and admin), the admin Orders tab, the order page and the invoice |
+
+Delivery has two doors that must agree: the admin can mark the whole order delivered from the Orders tab, or mark single items delivered from the Schedule board. Both start the rental plan on the delivery day. The Schedule board only allows it once the order is out for delivery, and the order becomes Delivered when the last waiting item is delivered. Cancelling restores stock only for the item updates that actually succeeded, so repeating a cancel never adds stock twice.
+
 ### 5b. Room Studio
 
 Room Studio runs entirely in the browser. No photo is sent to the server.
@@ -184,7 +196,7 @@ JSON-only request bodies.
 
 | Kind | Command | Coverage |
 | --- | --- | --- |
-| Unit tests | `npm test` | 47 tests: plan pricing and rounding, plan dates (month-end and leap-year clamping), price tiers, plan phase, early closure fee, deposit refund with damage claims, camera recovery from floor corners, footprint overlap, colour reading and scoring, size fit |
+| Unit tests | `npm test` | 66 tests, including the order pipeline rules: plan pricing and rounding, plan dates (month-end and leap-year clamping), price tiers, plan phase, early closure fee, deposit refund with damage claims, camera recovery from floor corners, footprint overlap, colour reading and scoring, size fit |
 | Type check | `npm run typecheck` | Strict TypeScript |
 | Lint | `npm run lint` | ESLint with the Next.js and React rules |
 | API tests | `bash scripts/api-test-rentals.sh`, `bash scripts/api-test-admin.sh` | End to end against a running server: auth, validation, access control, orders, stock, extension, return, cancellation, repairs, claims and disputes, users, areas, stats |

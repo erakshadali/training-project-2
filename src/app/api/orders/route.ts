@@ -102,6 +102,8 @@ export async function POST(req: Request) {
       slot: data.slot,
       payment: payments[data.payment],
       lines,
+      status: "Placed",
+      timeline: [{ status: "Placed", at: new Date(), by: "customer", note: "" }],
       rentPerMonth: lines.reduce((s, l) => s + l.rentPerMonth * l.qty, 0),
       deposit: lines.reduce((s, l) => s + l.deposit * l.qty, 0),
     });

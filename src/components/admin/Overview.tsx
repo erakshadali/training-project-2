@@ -20,6 +20,8 @@ export function Overview({ data, go }: Ctx) {
   ];
 
   const items: { text: string; n: number; tab: TabId }[] = [
+    { text: "new orders waiting for confirmation", n: k.ordersToConfirm, tab: "orders" },
+    { text: "orders packed or on the way", n: k.ordersInTransit, tab: "orders" },
     { text: "deliveries to make", n: k.deliveriesDue, tab: "schedule" },
     { text: "pickups booked", n: k.pickupsDue, tab: "schedule" },
     { text: "open repair requests", n: k.openRepairs, tab: "repairs" },

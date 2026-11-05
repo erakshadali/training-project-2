@@ -57,7 +57,10 @@ export interface OrderDoc extends Stamped {
   lines: OrderLineDoc[];
   rentPerMonth: number;
   deposit: number;
-  status: "Scheduled" | "Delivered" | "Closed" | "Cancelled";
+  /** "Scheduled" is only found on orders saved before the pipeline existed. It means Confirmed. */
+  status: "Placed" | "Confirmed" | "Packed" | "Out for delivery" | "Delivered" | "Closed" | "Cancelled" | "Scheduled";
+  timeline: { status: string; at: Date; by: "customer" | "admin" | "system"; note: string }[];
+  partner?: { name: string; phone: string } | null;
 }
 
 export type RentalStatus = "Scheduled" | "Return scheduled" | "Returned" | "Cancelled";
@@ -190,7 +193,9 @@ const orderSchema = new Schema<OrderDoc>(
     lines: { type: [orderLineSchema], required: true },
     rentPerMonth: { type: Number, required: true },
     deposit: { type: Number, required: true },
-    status: { type: String, enum: ["Scheduled", "Delivered", "Closed", "Cancelled"], default: "Scheduled" },
+    status: { type: String, enum: ["Placed", "Confirmed", "Packed", "Out for delivery", "Delivered", "Closed", "Cancelled", "Scheduled"], default: "Placed" },
+    timeline: [{ _id: false, status: String, at: Date, by: { type: String, enum: ["customer", "admin", "system"] }, note: { type: String, default: "" } }],
+    partner: { type: { _id: false, name: String, phone: String }, default: null },
   },
   { timestamps: true },
 );

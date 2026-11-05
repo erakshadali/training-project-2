@@ -1,8 +1,12 @@
 import type { Order } from "@/lib/orders";
+import { legacyTimeline, normalizeStatus, type TimelineEntry } from "@/lib/orderFlow";
 
 type OrderLean = {
   orderId: string;
   createdAt?: Date;
+  updatedAt?: Date;
+  timeline?: { status: string; at: Date; by: string; note?: string }[];
+  partner?: { name?: string; phone?: string } | null;
   name: string;
   phone: string;
   email: string;
@@ -21,9 +25,14 @@ type OrderLean = {
 /** Turns a Mongo order document into the plain JSON shape the browser uses. */
 export function serialize(o: unknown): Order {
   const d = o as OrderLean;
+  const created = d.createdAt ? new Date(d.createdAt).toISOString() : "";
+  const updated = d.updatedAt ? new Date(d.updatedAt).toISOString() : created;
+  const timeline: TimelineEntry[] = d.timeline?.length
+    ? d.timeline.map((t) => ({ status: normalizeStatus(t.status), at: new Date(t.at).toISOString(), by: t.by as TimelineEntry["by"], note: t.note ?? "" }))
+    : legacyTimeline(d.status, created, updated);
   return {
     id: d.orderId,
-    createdAt: d.createdAt ? new Date(d.createdAt).toISOString() : "",
+    createdAt: created,
     name: d.name,
     phone: d.phone,
     email: d.email,
@@ -43,6 +52,8 @@ export function serialize(o: unknown): Order {
     })),
     rentPerMonth: d.rentPerMonth,
     deposit: d.deposit,
-    status: d.status as Order["status"],
+    status: normalizeStatus(d.status),
+    timeline,
+    partner: d.partner?.name ? { name: d.partner.name, phone: d.partner.phone ?? "" } : null,
   };
 }

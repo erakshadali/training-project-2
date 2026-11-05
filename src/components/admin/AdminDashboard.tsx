@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
-import { BarChart3, CalendarClock, CheckCircle2, MapPin, Package, ShieldAlert, Users, Wrench } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, MapPin, Package, ShieldAlert, Users, Wrench } from "lucide-react";
+import { Orders } from "@/components/admin/Orders";
 import { Overview } from "@/components/admin/Overview";
 import { Schedule } from "@/components/admin/Schedule";
 import { Areas, Claims, Customers, Inventory, Repairs } from "@/components/admin/Tables";
 import { adminApi, type AdminData } from "@/lib/adminTypes";
 
-export type TabId = "overview" | "schedule" | "inventory" | "repairs" | "claims" | "customers" | "areas";
+export type TabId = "overview" | "orders" | "schedule" | "inventory" | "repairs" | "claims" | "customers" | "areas";
 
 export type Ctx = { data: AdminData; reload: () => Promise<void>; notify: (m: string) => void; go: (t: TabId) => void };
 
 const tabs: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "orders", label: "Orders", icon: ClipboardList },
   { id: "schedule", label: "Schedule", icon: CalendarClock },
   { id: "inventory", label: "Inventory", icon: Package },
   { id: "repairs", label: "Repairs", icon: Wrench },
@@ -30,13 +32,14 @@ export function AdminDashboard() {
 
   const reload = useCallback(async () => {
     try {
-      const [s, r, p, m, c, u, a] = await Promise.all(
-        ["stats", "rentals", "products", "maintenance", "claims", "users", "areas"].map((x) => adminApi(`/api/admin/${x}`)),
+      const [s, r, p, m, c, u, a, o] = await Promise.all(
+        ["stats", "rentals", "products", "maintenance", "claims", "users", "areas", "orders"].map((x) => adminApi(`/api/admin/${x}`)),
       );
-      if (![s, r, p, m, c, u, a].every((x) => x.ok)) throw new Error("load");
+      if (![s, r, p, m, c, u, a, o].every((x) => x.ok)) throw new Error("load");
       setData({
         stats: s.data as never,
         rentals: (r.data as never as { rentals: AdminData["rentals"] }).rentals,
+        orders: (o.data as never as { orders: AdminData["orders"] }).orders,
         products: (p.data as never as { products: AdminData["products"] }).products,
         requests: (m.data as never as { requests: AdminData["requests"] }).requests,
         claims: (c.data as never as { claims: AdminData["claims"] }).claims,
@@ -62,6 +65,7 @@ export function AdminDashboard() {
   const badge = (id: TabId) => {
     if (!data) return 0;
     const k = data.stats.kpis;
+    if (id === "orders") return k.ordersToConfirm;
     if (id === "schedule") return k.deliveriesDue + k.pickupsDue;
     if (id === "repairs") return k.openRepairs;
     if (id === "claims") return k.openDisputes;
@@ -111,6 +115,7 @@ export function AdminDashboard() {
               const ctx: Ctx = { data, reload, notify, go: setTab };
               switch (tab) {
                 case "overview": return <Overview {...ctx} />;
+                case "orders": return <Orders {...ctx} />;
                 case "schedule": return <Schedule {...ctx} />;
                 case "inventory": return <Inventory {...ctx} />;
                 case "repairs": return <Repairs {...ctx} />;

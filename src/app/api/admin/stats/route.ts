@@ -84,6 +84,8 @@ export async function GET() {
       claimsCharged: claims.filter((c) => c.status === "Charged" || c.status === "Upheld").reduce((s, c) => s + c.amount, 0),
       lowStock: products.filter((p) => p.active !== false && p.stock <= 3).length,
       totalOrders: orders.length,
+      ordersToConfirm: orders.filter((o) => o.status === "Placed").length,
+      ordersInTransit: orders.filter((o) => o.status === "Packed" || o.status === "Out for delivery").length,
     },
     byProduct,
     ordersPerDay: perDay,

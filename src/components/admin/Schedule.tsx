@@ -18,7 +18,7 @@ function Who({ r }: { r: AdminRental }) {
   );
 }
 
-export function Schedule({ data, reload, notify }: Ctx) {
+export function Schedule({ data, reload, notify, go }: Ctx) {
   const [busy, setBusy] = useState("");
   const [ret, setRet] = useState<AdminRental | null>(null);
   const today = todayISO();
@@ -48,9 +48,13 @@ export function Schedule({ data, reload, notify }: Ctx) {
                     <p className="font-semibold">{r.qty > 1 ? `${r.qty} x ` : ""}{r.name}</p>
                     <p className="text-xs text-moss">{formatDate(r.startDate)}{r.startDate === today ? " (today)" : r.startDate < today ? " (overdue)" : ""}, {r.slot} &middot; {r.months} months</p>
                   </div>
-                  <button onClick={() => deliver(r)} disabled={busy === r.id} className="flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral disabled:opacity-60">
-                    {busy === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Mark delivered
-                  </button>
+                  {r.orderStatus === "Out for delivery" ? (
+                    <button onClick={() => deliver(r)} disabled={busy === r.id} className="flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral disabled:opacity-60">
+                      {busy === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Mark delivered
+                    </button>
+                  ) : (
+                    <button onClick={() => go("orders")} className="rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white">Order is {r.orderStatus.toLowerCase()}: open Orders</button>
+                  )}
                 </div>
                 <Who r={r} />
               </li>

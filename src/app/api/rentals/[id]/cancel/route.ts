@@ -25,7 +25,12 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   await ProductModel.updateOne({ pid: rental.pid }, { $inc: { stock: rental.qty } });
 
   const remaining = await RentalModel.countDocuments({ orderId: rental.orderId, status: { $ne: "Cancelled" } });
-  if (remaining === 0) await OrderModel.updateOne({ orderId: rental.orderId }, { $set: { status: "Cancelled" } });
+  if (remaining === 0) {
+    await OrderModel.updateOne(
+      { orderId: rental.orderId, status: { $nin: ["Cancelled", "Delivered", "Closed"] } },
+      { $set: { status: "Cancelled" }, $push: { timeline: { status: "Cancelled", at: new Date(), by: "customer", note: "Cancelled by the customer" } } },
+    );
+  }
 
   return json({ rental: serializeRental(rental.toObject()) });
 }

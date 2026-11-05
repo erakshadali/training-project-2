@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { CalendarClock, CheckCircle2, Loader2, PackageOpen, Repeat, Truck, Undo2, Wrench, XCircle } from "lucide-react";
 import { Modal } from "@/components/Modal";
+import { StatusPill } from "@/components/OrderTracker";
 import { ProductArt } from "@/components/ProductArt";
 import { useAuth } from "@/context/AuthContext";
 import { useCatalog } from "@/context/CatalogContext";
@@ -259,7 +260,10 @@ function RentalCard({ rental: r, art, onAction, claims = [], onDispute }: { rent
       {interactive && (
         <div className="flex flex-wrap gap-2 border-t border-line bg-cream/60 px-4 py-3 sm:px-5">
           {r.phase === "Awaiting delivery" ? (
+            <>
+            <Link href={`/orders/${r.orderId}`} className="flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral"><Truck className="h-4 w-4" /> Track order</Link>
             <button onClick={() => onAction("cancel")} className="flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:border-coral hover:text-coral-deep"><XCircle className="h-4 w-4" /> Cancel item</button>
+            </>
           ) : (
             <>
               <button onClick={() => onAction("repair")} className="flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral"><Wrench className="h-4 w-4" /> Request repair</button>
@@ -363,13 +367,13 @@ function Orders({ orders }: { orders: Order[] }) {
         <m.li key={o.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="rounded-3xl border border-line bg-paper p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold">{o.id}</p>
-            <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-forest">{o.status}</span>
+            <StatusPill status={o.status} />
           </div>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-soft"><CalendarClock className="h-3.5 w-3.5" /> Delivery {formatDate(o.deliveryDate)}, {o.slot}, {o.city}</p>
           <ul className="mt-3 space-y-1 text-sm">
             {o.lines.map((l) => (<li key={l.productId}>{l.qty} x {l.name} <span className="text-ink-soft">({l.months} months, {inr(l.rentPerMonth * l.qty)}/mo)</span></li>))}
           </ul>
-          <Link href={`/orders/${o.id}`} className="mt-3 inline-block text-sm font-semibold text-moss hover:underline">View order</Link>
+          <Link href={`/orders/${o.id}`} className="mt-3 inline-block text-sm font-semibold text-moss hover:underline">Track order</Link>
         </m.li>
       ))}
     </ul>

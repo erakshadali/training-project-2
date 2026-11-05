@@ -1,12 +1,15 @@
 import type { Claim } from "@/lib/claims";
 import type { Product } from "@/data/products";
 import type { MaintenanceRequest, Rental } from "@/lib/rentals";
+import type { Order } from "@/lib/orders";
+import type { OrderStatus } from "@/lib/orderFlow";
 
 export type AdminRental = Rental & {
   customer: { name: string; email: string; phone: string } | null;
   address: string;
   city: string;
   slot: string;
+  orderStatus: OrderStatus;
   deliveredAt: string | null;
   returnedAt: string | null;
 };
@@ -47,6 +50,8 @@ export type Stats = {
     claimsCharged: number;
     lowStock: number;
     totalOrders: number;
+    ordersToConfirm: number;
+    ordersInTransit: number;
   };
   byProduct: { pid: string; name: string; unitsOut: number; reserved: number; onShelf: number; utilization: number; mrr: number }[];
   ordersPerDay: { date: string; orders: number }[];
@@ -55,6 +60,7 @@ export type Stats = {
 export type AdminData = {
   stats: Stats;
   rentals: AdminRental[];
+  orders: Order[];
   products: AdminProduct[];
   requests: AdminRequest[];
   claims: AdminClaim[];

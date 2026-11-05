@@ -55,7 +55,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const open = await RentalModel.countDocuments({ orderId: rental.orderId, status: { $nin: ["Returned", "Cancelled"] } });
-  if (open === 0) await OrderModel.updateOne({ orderId: rental.orderId }, { $set: { status: "Closed" } });
+  if (open === 0) {
+    await OrderModel.updateOne(
+      { orderId: rental.orderId },
+      { $set: { status: "Closed" }, $push: { timeline: { status: "Closed", at: new Date(), by: "admin", note: "All items returned" } } },
+    );
+  }
 
   return json({ rental: serializeRental(rental.toObject()), claimId: claim?.claimId ?? null });
 }
