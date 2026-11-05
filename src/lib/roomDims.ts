@@ -1,7 +1,16 @@
 import type { ArtKind, Product } from "@/data/products";
+import { decorDims } from "@/lib/roomDecor";
 
 /** Real-world size in feet. width = left/right, depth = front/back, height = up. */
-export type Dims = { w: number; d: number; h: number; /** height above the floor, for wall-mounted items */ lift?: number };
+export type Dims = {
+  w: number;
+  d: number;
+  h: number;
+  /** height above the floor, for wall-mounted items */
+  lift?: number;
+  /** lies on the floor, like a rug, so furniture can stand on it */
+  flat?: boolean;
+};
 
 /** Default size for each kind of product, used when a product has no specific entry. */
 const byKind: Record<ArtKind, Dims> = {
@@ -42,10 +51,15 @@ const byProduct: Record<string, Dims> = {
 };
 
 export function dimsFor(product: Pick<Product, "id" | "art">): Dims {
-  return byProduct[product.id] ?? byKind[product.art];
+  return byProduct[product.id] ?? decorDims(product.id) ?? byKind[product.art];
 }
 
 /** Items that sit on a stand or are mounted high are not meant to be judged by floor clearance alone. */
 export function isWallMounted(d: Dims) {
   return (d.lift ?? 0) > 0;
+}
+
+/** Pieces that use no floor space for crowding and overlap checks: wall-mounted pieces and flat rugs. */
+export function takesNoFloor(d: Dims) {
+  return isWallMounted(d) || !!d.flat;
 }

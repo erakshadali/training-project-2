@@ -5,7 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Save } from "lucide-react";
+import { Coffee, Frame, LampFloor, RectangleHorizontal, Save, Sprout } from "lucide-react";
 import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Wand2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import dynamic from "next/dynamic";
@@ -17,7 +17,8 @@ import { tenures } from "@/data/config";
 import type { Product } from "@/data/products";
 import { inr, monthlyRent } from "@/lib/pricing";
 import { colorName, crowding, readRoomColors, rgbToHex, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
-import { dimsFor, isWallMounted } from "@/lib/roomDims";
+import { DECOR, decorProducts, isDecorId, type DecorKind } from "@/lib/roomDecor";
+import { dimsFor, isWallMounted, takesNoFloor } from "@/lib/roomDims";
 import { calibrateFloor, clampInside, outsideBy, overlaps, type Calibration, type Pt } from "@/lib/roomMath";
 import { makeSampleRoom } from "@/lib/sampleRoom";
 
@@ -29,7 +30,9 @@ const Scene = dynamic(() => import("@/components/room/Scene").then((m) => m.Scen
 
 type Stage = "start" | "floor" | "studio";
 type Photo = { url: string; w: number; h: number };
-type Tab = "furniture" | "check";
+type Tab = "furniture" | "decor" | "check";
+
+const decorIcon: Record<DecorKind, typeof Sprout> = { rug: RectangleHorizontal, plant: Sprout, mirror: Frame, coffee: Coffee, lamp: LampFloor };
 
 const MAX_SIDE = 1400;
 
@@ -106,6 +109,8 @@ async function makeThumb(blob: Blob): Promise<string> {
 
 export function RoomStudio() {
   const { products } = useCatalog();
+  // Decor is free and never part of the rent, so it lives beside the products rather than inside the catalogue.
+  const allPieces = useMemo(() => [...products, ...decorProducts], [products]);
   const { add, lines: cartLines, setQty, setMonths } = useCart();
 
   const [stage, setStage] = useState<Stage>("start");
@@ -229,7 +234,7 @@ export function RoomStudio() {
     const ph: Photo = { url, w: s.imgW, h: s.imgH };
     const nextCal = calibrateFloor(s.quad, s.W, s.D, s.imgW, s.imgH, s.hfov);
     if (!nextCal) throw new Error("This layout's floor could not be rebuilt.");
-    const ids = new Set(products.map((p) => p.id));
+    const ids = new Set(allPieces.map((p) => p.id));
     setPhoto(ph);
     setQuad(s.quad);
     setW(String(s.W));
@@ -244,7 +249,7 @@ export function RoomStudio() {
     setSavedId(id);
     setSaveName(name);
     setStage("studio");
-  }, [products]);
+  }, [allPieces]);
 
   // After logging in from the save panel, bring back the room the customer was working on.
   useEffect(() => {
@@ -329,12 +334,12 @@ export function RoomStudio() {
 
   /* ----------------------------- step 3: studio ----------------------------- */
 
-  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const productById = useMemo(() => new Map(allPieces.map((p) => [p.id, p])), [allPieces]);
 
   const footprint = useCallback((it: RoomItem) => {
     const p = productById.get(it.pid)!;
     const d = dimsFor(p);
-    return { x: it.x, z: it.z, w: d.w, d: d.d, rot: it.rot, wall: isWallMounted(d) };
+    return { x: it.x, z: it.z, w: d.w, d: d.d, rot: it.rot, wall: takesNoFloor(d) };
   }, [productById]);
 
   const problems = useMemo(() => {
@@ -363,6 +368,7 @@ export function RoomStudio() {
   /** Find a free spot, preferring the back wall, then the side walls, then anywhere. */
   const findSpot = useCallback((p: Product, current: RoomItem[]): { x: number; z: number; rot: number } => {
     const d = dimsFor(p);
+    if (d.flat) return { x: Wn / 2, z: Dn / 2, rot: 0 };
     const others = current.map(footprint).filter((f) => !f.wall);
     const free = (x: number, z: number, rot: number) => {
       if (isWallMounted(d)) return true;
@@ -422,6 +428,27 @@ export function RoomStudio() {
       const td = dimsFor(table.p);
       put(table, table.p.art === "dining" ? { x: Wn - td.w / 2 - 0.6, z: Dn * 0.5, rot: 0 } : { x: Wn - td.d / 2 - 0.15, z: Dn * 0.28, rot: -Math.PI / 2 });
     }
+    // Decor: a rug under the seating, a plant in the back corner, a mirror on the wall and a lamp beside the sofa.
+    // Each piece tries its spots in order and takes the first free one. If none is free it is simply left out.
+    const dec = (id: string, ...spots: { x: number; z: number; rot: number }[]) => {
+      const piece = decorProducts.find((x) => x.id === id);
+      if (!piece) return;
+      const d = dimsFor(piece);
+      if (d.flat && (d.w > Wn - 1 || d.d > Dn - 1)) return;
+      for (const want of spots) {
+        const fp = clampInside({ x: want.x, z: want.z, w: d.w, d: d.d, rot: want.rot }, Wn, Dn);
+        const others = cur.map(footprint).filter((f) => !f.wall);
+        if (takesNoFloor(d) || (outsideBy(fp, Wn, Dn) < 0.01 && !others.some((o) => overlaps(fp, o)))) {
+          cur = [...cur, { id: newId(), pid: id, x: fp.x, z: fp.z, rot: want.rot }];
+          return;
+        }
+      }
+    };
+    const sofaZ = sofaDims ? (tv && tvDims ? Math.min(Dn - sofaDims.d / 2 - 0.8, tvDims.d + 5.8) : sofaDims.d / 2 + 0.2) : Dn / 2;
+    dec("d-rug-grey", { x: Wn / 2, z: Math.min(Dn - 2.6, sofaZ + 0.6), rot: 0 });
+    dec("d-mirror", { x: Wn * 0.22, z: 0.2, rot: 0 });
+    dec("d-plant", { x: Wn - 1, z: 1, rot: 0 }, { x: 1, z: Dn - 1.3, rot: 0 }, { x: Wn - 1, z: Dn - 1.3, rot: 0 }, { x: Wn * 0.35, z: 1, rot: 0 }, { x: Wn * 0.7, z: Dn - 1.3, rot: 0 });
+    if (sofaDims) dec("d-lamp", { x: Math.min(Wn - 1, Wn / 2 + sofaDims.w / 2 + 0.9), z: sofaZ, rot: 0 }, { x: Math.max(1, Wn / 2 - sofaDims.w / 2 - 0.9), z: sofaZ, rot: 0 });
     setItems(cur);
     setSelectedId(null);
     setTab("check");
@@ -535,7 +562,7 @@ export function RoomStudio() {
 
   function addAllToCart() {
     const counts = new Map<string, number>();
-    for (const it of items) counts.set(it.pid, (counts.get(it.pid) ?? 0) + 1);
+    for (const it of items) if (!isDecorId(it.pid)) counts.set(it.pid, (counts.get(it.pid) ?? 0) + 1);
     // Set the exact quantity, so pressing the button twice never doubles the cart.
     for (const [pid, qty] of counts) {
       if (cartLines.some((l) => l.productId === pid)) { setMonths(pid, plan); setQty(pid, qty); }
@@ -545,9 +572,10 @@ export function RoomStudio() {
 
   const selected = items.find((i) => i.id === selectedId) ?? null;
   const selectedProduct = selected ? productById.get(selected.pid) : null;
-  const placedDims = items.map((it) => ({ ...dimsFor(productById.get(it.pid)!), wallMounted: isWallMounted(dimsFor(productById.get(it.pid)!)) }));
+  const placedDims = items.map((it) => ({ ...dimsFor(productById.get(it.pid)!), wallMounted: takesNoFloor(dimsFor(productById.get(it.pid)!)) }));
   const cov = crowding(placedDims, Wn, Dn);
-  const totals = items.reduce((s, it) => {
+  const rentable = items.filter((i) => !isDecorId(i.pid));
+  const totals = rentable.reduce((s, it) => {
     const p = productById.get(it.pid);
     return p ? { rent: s.rent + monthlyRent(p, plan), deposit: s.deposit + p.deposit } : s;
   }, { rent: 0, deposit: 0 });
@@ -654,7 +682,7 @@ export function RoomStudio() {
                 <Scene
                   handleRef={sceneRef}
                   photoUrl={photo.url} imgW={photo.w} imgH={photo.h} cal={cal} W={Wn} D={Dn}
-                  items={items} selectedId={selectedId} products={products} problems={problems}
+                  items={items} selectedId={selectedId} products={allPieces} problems={problems}
                   brightness={brightness} lightAngle={lightAngle} usePhotos={usePhotos}
                   onSelect={setSelectedId} onMove={move}
                 />
@@ -749,8 +777,8 @@ export function RoomStudio() {
             </AnimatePresence>
 
             <div className="flex gap-2 lg:shrink-0" role="tablist" aria-label="Room Studio panels">
-              {([["furniture", "Furniture"], ["check", `Room check${items.length ? ` (${items.length})` : ""}`]] as [Tab, string][]).map(([id, label]) => (
-                <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{label}</button>
+              {([["furniture", "Furniture"], ["decor", "Decor"], ["check", `Check${items.length ? ` (${items.length})` : ""}`]] as [Tab, string][]).map(([id, label]) => (
+                <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition ${tab === id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{label}</button>
               ))}
             </div>
 
@@ -799,6 +827,29 @@ export function RoomStudio() {
                         </button>
                       </li>
                     ))}
+                  </ul>
+                </div>
+              ) : tab === "decor" ? (
+                <div>
+                  <p className="text-xs text-ink-soft">Free finishing touches. Decor is not rented, not in your cart and not in the price. It just makes the room look lived in.</p>
+                  <ul className="mt-2 space-y-2">
+                    {DECOR.map((d) => {
+                      const Icon = decorIcon[d.kind];
+                      const on = items.filter((i) => i.pid === d.id).length;
+                      return (
+                        <li key={d.id}>
+                          <button onClick={() => place(decorProducts.find((x) => x.id === d.id)!)} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-paper p-2 text-left transition hover:border-moss hover:shadow-md">
+                            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl" style={{ background: `${d.tint}26`, color: d.tint }}><Icon className="h-7 w-7" /></span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold">{d.name}</span>
+                              <span className="block text-xs text-ink-soft">{d.blurb}</span>
+                              <span className="mt-0.5 block text-[11px] font-semibold text-moss">{d.dims.w} x {d.dims.d} ft &middot; free{on ? ` &middot; ${on} in your room` : ""}</span>
+                            </span>
+                            <span className="shrink-0 rounded-full border border-forest px-3 py-1 text-xs font-semibold text-forest">Place</span>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : (
@@ -863,8 +914,8 @@ export function RoomStudio() {
                       </select>
                     </div>
                     <p className="font-display mt-2 text-3xl font-semibold">{inr(totals.rent)}<span className="text-sm font-medium text-white/70"> /month</span></p>
-                    <p className="text-xs text-white/70">{items.length} {items.length === 1 ? "item" : "items"}. Refundable deposit {inr(totals.deposit)}. Free delivery.</p>
-                    <button onClick={addAllToCart} disabled={!items.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white transition hover:bg-coral-deep disabled:opacity-40"><ShoppingBag className="h-4 w-4" /> Add all to cart</button>
+                    <p className="text-xs text-white/70">{rentable.length} {rentable.length === 1 ? "item" : "items"} to rent{items.length > rentable.length ? `, ${items.length - rentable.length} free decor` : ""}. Refundable deposit {inr(totals.deposit)}. Free delivery.</p>
+                    <button onClick={addAllToCart} disabled={!rentable.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white transition hover:bg-coral-deep disabled:opacity-40"><ShoppingBag className="h-4 w-4" /> Add all to cart</button>
                   </div>
                 </div>
               )}
