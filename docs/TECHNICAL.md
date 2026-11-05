@@ -35,6 +35,7 @@ Key design choices:
 | Language | TypeScript (strict) | Catches mistakes before they run |
 | Styling | Tailwind CSS 4 with a custom colour palette | Fast, consistent, mobile-first |
 | Animation | Framer Motion (lazy loaded), plus CSS keyframes for the hero | Rich interactions without blocking first paint |
+| 3D | Three.js, loaded only on the Room Studio page | Real 3D furniture over the customer's photo |
 | Icons | lucide-react | Consistent, tree-shakable |
 | Database | MongoDB with Mongoose 9 | Flexible documents that fit orders and rentals |
 | Auth | bcryptjs, jose (JWT), httpOnly cookie | No third-party auth service needed |
@@ -130,6 +131,30 @@ Customer routes need a session cookie. `/api/admin/*` routes return 401 when log
 | GET, POST | `/api/admin/areas` | List or add cities |
 | PATCH | `/api/admin/areas/[id]` | `{ active }`. At least one city must stay active |
 
+### 5b. Room Studio
+
+Room Studio runs entirely in the browser. No photo is sent to the server.
+
+| Piece | File | What it does |
+| --- | --- | --- |
+| Geometry | `lib/roomMath.ts` | Solves the homography from the four marked floor corners to the floor rectangle, recovers the camera pose (assuming a typical phone field of view, adjustable), and builds a Three.js camera that matches the photo. Also footprint, overlap (separating axis test), out-of-room and clamping helpers |
+| Colour and fit | `lib/roomColor.ts` | Reads the median floor and wall colours from the photo, converts to CIE L*a*b* and HSL, scores a product colour (40 points contrast with the floor, 30 hue relation to the walls, 30 light or dark contrast), rates size fit and floor crowding |
+| Sizes | `lib/roomDims.ts` | Real width, depth and height in feet for every product, with defaults per kind of product |
+| 3D models | `components/room/models.ts` | Procedural models for the 13 kinds of product, coloured with the product tint |
+| 3D scene | `components/room/Scene.tsx` | Transparent WebGL layer over the photo. Soft shadows on a shadow-catcher floor, picking and dragging on the floor plane, PNG export |
+| Screens | `components/room/RoomStudio.tsx` | Upload, floor marking with a live perspective grid and a 3 ft reference square, and the studio |
+| Sample | `lib/sampleRoom.ts` | Draws an empty hall with a known camera so the feature can be tried without a photo |
+
+How the camera is recovered: with the floor corners at known positions on the floor plane (X, Z), the image points satisfy
+`p = K [r1 r2 t] [X Z 1]^T`. The homography H is solved from the four correspondences, then `K^-1 H` gives `r1`, `r2` and `t` up to
+scale. The rotation is orthonormalised, the floor normal gives "up", and the result is converted to Three.js conventions.
+The unit tests project known 3D points with an independent ground-truth camera and check the recovered camera lands within half
+a pixel, and that its position and height are recovered.
+
+Honest limits: the camera angle is assumed (65 degrees by default, adjustable with the photo-angle slider), lens distortion is
+ignored, and the 3D models are simple shapes, not photographs of the real product. Scale is only as accurate as the room size the
+customer enters. The colour score is a rule of thumb.
+
 ## 6. Security
 
 | Concern | Measure |
@@ -155,7 +180,7 @@ JSON-only request bodies.
 
 | Kind | Command | Coverage |
 | --- | --- | --- |
-| Unit tests | `npm test` | 26 tests: plan pricing and rounding, plan dates (month-end and leap-year clamping), price tiers, plan phase, early closure fee, deposit refund with damage claims |
+| Unit tests | `npm test` | 47 tests: plan pricing and rounding, plan dates (month-end and leap-year clamping), price tiers, plan phase, early closure fee, deposit refund with damage claims, camera recovery from floor corners, footprint overlap, colour reading and scoring, size fit |
 | Type check | `npm run typecheck` | Strict TypeScript |
 | Lint | `npm run lint` | ESLint with the Next.js and React rules |
 | API tests | `bash scripts/api-test-rentals.sh`, `bash scripts/api-test-admin.sh` | End to end against a running server: auth, validation, access control, orders, stock, extension, return, cancellation, repairs, claims and disputes, users, areas, stats |

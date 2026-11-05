@@ -14,6 +14,7 @@ const links = [
   { href: "/products", label: "Shop all" },
   { href: "/products?category=furniture", label: "Furniture" },
   { href: "/products?category=appliances", label: "Appliances" },
+  { href: "/room-studio", label: "Room Studio" },
   { href: "/#how-it-works", label: "How it works" },
 ];
 

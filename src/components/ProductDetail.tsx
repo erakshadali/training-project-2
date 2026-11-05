@@ -110,6 +110,11 @@ export function ProductDetail({ product }: { product: Product }) {
             </p>
           </div>
 
+          <Link href="/room-studio" className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3 text-sm transition hover:border-moss">
+            <span><span className="block font-semibold">Will it fit your room?</span><span className="text-ink-soft">See it in your hall in 3D, at its real size.</span></span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-moss" />
+          </Link>
+
           <ul className="mt-6 grid gap-3 sm:grid-cols-3">
             {[
               { icon: Truck, t: "Free delivery" },

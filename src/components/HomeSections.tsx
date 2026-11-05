@@ -103,6 +103,37 @@ export function Hero() {
   );
 }
 
+export function RoomStudioBanner() {
+  return (
+    <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6">
+      <Reveal>
+        <div className="relative grid items-center gap-8 overflow-hidden rounded-[2.5rem] bg-forest p-8 text-white sm:p-12 lg:grid-cols-[1.1fr_1fr]">
+          <div className="grain absolute inset-0 opacity-20" aria-hidden />
+          <div className="relative">
+            <p className="text-sm font-semibold uppercase tracking-wide text-sun">New: Room Studio</p>
+            <h2 className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Try furniture in your own hall, in 3D</h2>
+            <p className="mt-3 max-w-lg text-white/80">Upload a photo of your empty room. Pieces stand on your floor at their real size, and we check what fits and what suits your colours.</p>
+            <ul className="mt-5 space-y-1.5 text-sm text-white/85">
+              {["Real-size 3D furniture in the right perspective", "Fit and colour check for every piece", "One click to furnish the room, or add it all to your cart"].map((t) => (
+                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-sun" /> {t}</li>
+              ))}
+            </ul>
+            <Link href="/room-studio" className="group mt-7 inline-flex items-center gap-2 rounded-full bg-coral px-6 py-3.5 font-semibold text-white transition hover:bg-coral-deep">
+              Open Room Studio <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+          <div className="relative mx-auto h-56 w-full max-w-md sm:h-64" aria-hidden>
+            <div className="absolute inset-x-4 bottom-0 top-4 rounded-[2rem] bg-cream/95" />
+            <div className="float-slow absolute bottom-6 left-3 w-[62%]"><ProductArt kind="sofa" tint="#2f6f62" /></div>
+            <div className="float-mid absolute right-3 top-2 w-[34%]"><ProductArt kind="shelf" tint="#b08a62" /></div>
+            <div className="float-fast absolute bottom-4 right-4 w-[30%]"><ProductArt kind="desk" tint="#7a5a3c" /></div>
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 export function CategoryTiles() {
   const tiles = [
     { href: "/products?category=furniture", title: "Furniture", sub: "Beds, sofas, tables, wardrobes", art: "sofa" as const, tint: "#2f6f62", bg: "bg-mint" },

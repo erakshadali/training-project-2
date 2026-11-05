@@ -45,3 +45,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# alternate dev build folders
+/.next-*/

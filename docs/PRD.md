@@ -54,6 +54,7 @@ Challenges faced by renters today:
 - Monthly rental plans (3, 6 and 12 months) with live pricing
 - Delivery scheduling (date and time slot) and pickup scheduling
 - Customer accounts, cart, checkout (simulated payment) and order history
+- Room Studio: try furniture in a photo of the customer's own room in 3D, with a fit and colour check
 - Customer dashboard: active rentals, repair requests, extensions, returns, cancellations, damage claims and disputes
 - Admin dashboard: KPIs, inventory, pricing, delivery and pickup schedule, repairs, returns and damage claims, disputes,
   users and service areas
@@ -91,6 +92,21 @@ Challenges faced by renters today:
 | U9 | View rental history and past orders | Done |
 | U10 | Cancel an item before delivery (free, until the day before) | Done |
 | U11 | See the deposit refund after a return, view damage charges and dispute them | Done |
+
+### 6.1b Room Studio (extra feature beyond the brief)
+
+| ID | Requirement | Status |
+| --- | --- | --- |
+| R1 | Upload a photo of an empty room. The photo is processed in the browser and not uploaded | Done |
+| R2 | Mark the floor corners and enter the floor size so furniture appears at real size and in the right perspective | Done |
+| R3 | Place any catalog product as a 3D model, then move, rotate, duplicate and delete it | Done |
+| R4 | Check the layout: floor space used, size fit per piece, colour match against the room, overlap and out-of-room warnings | Done |
+| R5 | Suggest suitable products and furnish the room automatically | Done |
+| R6 | Download the result as a picture and add the whole layout to the cart | Done |
+| R7 | Save layouts to the customer account | Planned |
+
+Why it matters: the biggest doubt when renting furniture is "will it fit and look right in my place?". Room Studio answers
+that before the customer commits, which should reduce returns and early closures.
 
 ### 6.2 Admin and vendor features
 

@@ -45,6 +45,24 @@ With no `MONGODB_URI` the dev server starts a temporary in-memory MongoDB, seeds
   - **Customers**: list with order counts, suspend or restore accounts (admins are protected)
   - **Areas**: switch delivery cities on or off or add new ones. At least one city must stay active
 
+## Room Studio (`/room-studio`)
+
+Upload a photo of an empty hall and try furniture in it, in 3D, at its real size.
+
+1. **Upload a photo** (stays in the browser, never sent to a server) or try the built-in sample hall.
+2. **Mark the floor**: drag four dots onto the floor corners and enter the room size in feet. From those corners the app works
+   out where the camera was (a homography and pose estimate), so 3D furniture is drawn in the same perspective as the photo.
+3. **Place furniture**: all 17 products are available as 3D models built from boxes and cylinders, sized to their real
+   dimensions and coloured like the product. Drag to move, rotate, duplicate or delete. Shadows fall on the floor.
+4. **Room Check**: floor space used (roomy, balanced, crowded), a size-fit rating for every piece, a colour match score
+   against the floor and wall colours read from the photo, overlap and out-of-room warnings, and a ranked list of pieces that
+   suit the room.
+5. **Furnish it for me** lays out a TV, a sofa facing it, a shelf and a desk or dining set that suit the room, **Download
+   picture** saves the composite as a PNG, and **Add all to cart** puts the layout in the cart at the chosen plan.
+
+The colour score is a design rule of thumb (contrast with the floor, hue relation to the walls, light or dark contrast), not a
+guarantee. Three.js loads only when the studio opens.
+
 ## API
 
 | Method | Route | Notes |
@@ -88,7 +106,7 @@ All `/api/admin/*` routes return 401 when logged out and 403 for customers.
 ## Tests and checks
 
 ```bash
-npm test            # 26 unit tests: pricing, plan dates, price tiers, early closure fee, deposit refunds
+npm test            # 47 unit tests: pricing, plan dates, tiers, refunds, Room Studio camera math, overlap, colour scoring
 npm run typecheck   # strict TypeScript
 npm run lint        # ESLint
 BASE_URL=http://localhost:3000 bash scripts/api-test-admin.sh     # end-to-end API tests (needs a running server)
