@@ -13,13 +13,13 @@ export async function Footer() {
             Furniture and appliances on flexible monthly plans. Free delivery, free installation, free maintenance and a fully
             refundable deposit.
           </p>
-          <p className="mt-6 text-xs text-white/45">
+          <p className="mt-6 text-xs text-white/60">
             RentEase is a student project built for the Unified Mentor full stack internship. Products, prices and orders are
             demo data and no real payments are taken.
           </p>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">Shop</h3>
+          <h2 className="text-sm font-semibold text-white">Shop</h2>
           <ul className="mt-4 space-y-2 text-sm">
             <li><Link className="hover:text-white" href="/products?category=furniture">Furniture</Link></li>
             <li><Link className="hover:text-white" href="/products?category=appliances">Appliances</Link></li>
@@ -28,7 +28,7 @@ export async function Footer() {
           </ul>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-white">We deliver in</h3>
+          <h2 className="text-sm font-semibold text-white">We deliver in</h2>
           <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             {cities.map((c) => (
               <li key={c}>{c}</li>
@@ -36,7 +36,7 @@ export async function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-white/10 py-5 text-center text-xs text-white/45">
+      <div className="border-t border-white/10 py-5 text-center text-xs text-white/60">
         &copy; 2026 RentEase. Built with Next.js, TypeScript and Tailwind CSS.
       </div>
     </footer>

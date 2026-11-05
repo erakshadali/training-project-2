@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { MapPin, Menu, ShoppingBag, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -31,7 +31,7 @@ export function Logo({ light = false }: { light?: boolean }) {
         </svg>
       </span>
       <span className={`font-display text-xl font-semibold tracking-tight ${light ? "text-white" : "text-ink"}`}>
-        Rent<span className="text-coral">Ease</span>
+        Rent<span className={light ? "text-sun" : "text-coral-deep"}>Ease</span>
       </span>
     </span>
   );
@@ -69,7 +69,7 @@ export function Header() {
 
         <div className="ml-auto flex items-center gap-2">
           <label className="relative hidden items-center sm:flex">
-            <MapPin className="pointer-events-none absolute left-3 h-4 w-4 text-coral" aria-hidden />
+            <MapPin className="pointer-events-none absolute left-3 h-4 w-4 text-coral-deep" aria-hidden />
             <span className="sr-only">Delivery city</span>
             <select
               value={city}
@@ -122,7 +122,7 @@ export function Header() {
             <ShoppingBag className="h-[18px] w-[18px]" />
             <AnimatePresence>
               {count > 0 && (
-                <motion.span
+                <m.span
                   key={count}
                   initial={{ scale: 0.4, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -130,7 +130,7 @@ export function Header() {
                   className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[11px] font-bold text-white"
                 >
                   {count}
-                </motion.span>
+                </m.span>
               )}
             </AnimatePresence>
           </button>
@@ -148,7 +148,7 @@ export function Header() {
 
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -189,7 +189,7 @@ export function Header() {
                 </>
               )}
               <label className="mt-1 flex items-center gap-2 px-3 py-2 text-sm">
-                <MapPin className="h-4 w-4 text-coral" aria-hidden /> Delivering to
+                <MapPin className="h-4 w-4 text-coral-deep" aria-hidden /> Delivering to
                 <select
                   value={city}
                   onChange={(e) => setCity(e.target.value as City)}
@@ -201,7 +201,7 @@ export function Header() {
                 </select>
               </label>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </header>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Loader2, Lock } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import type { City } from "@/data/config";
@@ -231,14 +231,14 @@ export function CheckoutView() {
           {serverError && (
             <p role="alert" className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{serverError}</p>
           )}
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.97 }}
             disabled={submitting}
             type="submit"
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3.5 font-semibold text-white transition hover:bg-coral-deep disabled:opacity-70"
           >
             {submitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Placing order...</> : "Place order"}
-          </motion.button>
+          </m.button>
         </aside>
       </form>
     </div>

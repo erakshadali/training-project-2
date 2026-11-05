@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -50,7 +50,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   return (
     <div className="mx-auto grid min-h-[70vh] max-w-md place-items-center px-4 py-12 sm:px-6">
-      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full rounded-[2rem] border border-line bg-paper p-7 shadow-[0_24px_60px_-30px_rgba(13,59,51,0.4)]">
+      <m.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full rounded-[2rem] border border-line bg-paper p-7 shadow-[0_24px_60px_-30px_rgba(13,59,51,0.4)]">
         <h1 className="font-display text-3xl font-semibold tracking-tight">{isRegister ? "Create your account" : "Welcome back"}</h1>
         <p className="mt-1 text-sm text-ink-soft">{isRegister ? "Track your rentals, raise repair requests and extend plans." : "Log in to see your rentals and place orders."}</p>
 
@@ -79,9 +79,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
           {message && <p role="alert" className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{message}</p>}
 
-          <motion.button whileTap={{ scale: 0.97 }} disabled={busy} type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3.5 font-semibold text-white transition hover:bg-coral-deep disabled:opacity-70">
+          <m.button whileTap={{ scale: 0.97 }} disabled={busy} type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3.5 font-semibold text-white transition hover:bg-coral-deep disabled:opacity-70">
             {busy ? <><Loader2 className="h-5 w-5 animate-spin" /> Please wait...</> : isRegister ? "Create account" : "Log in"}
-          </motion.button>
+          </m.button>
         </form>
 
         <p className="mt-5 text-center text-sm text-ink-soft">
@@ -90,7 +90,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             {isRegister ? "Log in" : "Create one"}
           </Link>
         </p>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { X } from "lucide-react";
 
 type Props = { open: boolean; onClose: () => void; title: string; children: React.ReactNode };
@@ -27,8 +27,8 @@ export function Modal({ open, onClose, title, children }: Props) {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 grid place-items-end bg-forest-deep/50 backdrop-blur-[2px] sm:place-items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-          <motion.div
+        <m.div className="fixed inset-0 z-50 grid place-items-end bg-forest-deep/50 backdrop-blur-[2px] sm:place-items-center sm:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+          <m.div
             ref={panel}
             role="dialog"
             aria-modal="true"
@@ -47,8 +47,8 @@ export function Modal({ open, onClose, title, children }: Props) {
               </button>
             </div>
             {children}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

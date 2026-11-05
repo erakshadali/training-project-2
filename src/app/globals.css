@@ -10,8 +10,8 @@
   --sand: #f5efe3;
   --cream: #fbf8f2;
   --paper: #ffffff;
-  --coral: #e5603a;
-  --coral-deep: #c94b27;
+  --coral: #c24424;
+  --coral-deep: #a53a1c;
   --sun: #f1b44c;
   --line: #e6dfd0;
   --background: var(--cream);
@@ -63,6 +63,14 @@ body {
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* Hero entrance: pure CSS so the text paints immediately, without waiting for JavaScript. */
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes line-up { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0s); }
+.line-up { animation: line-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0s); }
+.pop { animation: pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0s); }
 
 /* floating idle animation for hero art */
 @keyframes float-y {

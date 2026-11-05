@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import type { Ctx, TabId } from "@/components/admin/AdminDashboard";
 import { inr } from "@/lib/pricing";
@@ -35,16 +35,16 @@ export function Overview({ data, go }: Ctx) {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c, i) => (
-          <motion.div key={c.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-3xl border border-line bg-paper p-5">
+          <m.div key={c.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-3xl border border-line bg-paper p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-moss">{c.label}</p>
             <p className="font-display mt-2 text-3xl font-semibold text-forest">{c.value}</p>
             <p className="mt-1 text-xs text-ink-soft">{c.sub}</p>
-          </motion.div>
+          </m.div>
         ))}
       </div>
 
       <div className="rounded-3xl border border-line bg-paper p-5">
-        <h2 className="font-display flex items-center gap-2 text-xl font-semibold"><AlertTriangle className="h-5 w-5 text-coral" /> Needs attention</h2>
+        <h2 className="font-display flex items-center gap-2 text-xl font-semibold"><AlertTriangle className="h-5 w-5 text-coral-deep" /> Needs attention</h2>
         {attention.length === 0 ? (
           <p className="mt-3 text-sm text-ink-soft">Nothing is waiting on you right now.</p>
         ) : (
@@ -68,7 +68,7 @@ export function Overview({ data, go }: Ctx) {
             {data.stats.ordersPerDay.map((d, i) => (
               <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
                 <span className="text-xs font-semibold text-forest">{d.orders}</span>
-                <motion.div initial={{ height: 0 }} animate={{ height: `${(d.orders / maxDay) * 100}%` }} transition={{ delay: 0.1 + i * 0.05, duration: 0.6 }} className="min-h-1 w-full rounded-t-xl bg-moss" />
+                <m.div initial={{ height: 0 }} animate={{ height: `${(d.orders / maxDay) * 100}%` }} transition={{ delay: 0.1 + i * 0.05, duration: 0.6 }} className="min-h-1 w-full rounded-t-xl bg-moss" />
                 <span className="text-[10px] text-ink-soft">{new Date(d.date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" })}</span>
               </div>
             ))}
@@ -85,7 +85,7 @@ export function Overview({ data, go }: Ctx) {
                 <li key={r.pid}>
                   <div className="flex justify-between text-sm"><span className="truncate font-medium">{r.name}</span><span className="font-bold text-forest">{inr(r.mrr)}/mo</span></div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-sand">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(4, (r.mrr / Math.max(1, rows[0].mrr)) * 100)}%` }} transition={{ duration: 0.7 }} className="h-full rounded-full bg-coral" />
+                    <m.div initial={{ width: 0 }} animate={{ width: `${Math.max(4, (r.mrr / Math.max(1, rows[0].mrr)) * 100)}%` }} transition={{ duration: 0.7 }} className="h-full rounded-full bg-coral" />
                   </div>
                   <p className="mt-0.5 text-xs text-ink-soft">{r.unitsOut} out, {r.reserved} reserved, {r.onShelf} on the shelf ({pct(r.utilization)} utilized)</p>
                 </li>

@@ -7,6 +7,7 @@ import { CartProvider } from "@/context/CartContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
+import { MotionProvider } from "@/components/MotionProvider";
 import { getSessionUser } from "@/lib/auth";
 import { getActiveAreas, getAllProducts } from "@/lib/catalog";
 
@@ -42,16 +43,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${jakarta.variable} ${fraunces.variable}`}>
       <body className="min-h-screen flex flex-col">
-        <AuthProvider initialUser={user}>
-          <CatalogProvider products={products} areas={areas}>
-            <CartProvider>
-              <Header />
-              <main className="flex-1">{children}</main>
-              <Footer />
-              <CartDrawer />
-            </CartProvider>
-          </CatalogProvider>
-        </AuthProvider>
+        <MotionProvider>
+          <AuthProvider initialUser={user}>
+            <CatalogProvider products={products} areas={areas}>
+              <CartProvider>
+                <Header />
+                <main className="flex-1">{children}</main>
+                <Footer />
+                <CartDrawer />
+              </CartProvider>
+            </CatalogProvider>
+          </AuthProvider>
+        </MotionProvider>
       </body>
     </html>
   );

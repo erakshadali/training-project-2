@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { CalendarClock, CheckCircle2, Loader2, PackageOpen, Repeat, Truck, Undo2, Wrench, XCircle } from "lucide-react";
 import { Modal } from "@/components/Modal";
 import { ProductArt } from "@/components/ProductArt";
@@ -119,9 +119,9 @@ export function Dashboard() {
 
       <AnimatePresence>
         {notice && (
-          <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-5 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest">
+          <m.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-5 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest">
             <CheckCircle2 className="h-4 w-4" /> {notice}
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
       {loadError && <p role="alert" className="mt-5 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{loadError}</p>}
@@ -133,11 +133,11 @@ export function Dashboard() {
           { label: "Next plan ends", value: stats.nextEnd ? formatDate(stats.nextEnd.endDate) : "None", sub: stats.nextEnd ? stats.nextEnd.name : "no active plans" },
           { label: "Open repairs", value: String(stats.open), sub: stats.open ? "we are on it" : "all clear" },
         ].map((s, i) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="rounded-3xl border border-line bg-paper p-4">
+          <m.div key={s.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="rounded-3xl border border-line bg-paper p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-moss">{s.label}</p>
             <p className="font-display mt-1 text-2xl font-semibold text-forest">{s.value}</p>
             <p className="mt-0.5 truncate text-xs text-ink-soft">{s.sub}</p>
-          </motion.div>
+          </m.div>
         ))}
       </div>
 
@@ -211,7 +211,7 @@ function RentalCard({ rental: r, art, onAction, claims = [], onDispute }: { rent
   const live = r.phase === "Active" || r.phase === "Plan ended";
   const interactive = r.phase !== "Returned" && r.phase !== "Cancelled";
   return (
-    <motion.article layout initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="overflow-hidden rounded-3xl border border-line bg-paper">
+    <m.article layout initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="overflow-hidden rounded-3xl border border-line bg-paper">
       <div className="flex gap-4 p-4 sm:p-5">
         <div className="grid h-24 w-24 shrink-0 place-items-center rounded-2xl bg-sand sm:h-28 sm:w-28">
           {art ? <ProductArt kind={art.art} tint={art.tint} className="h-20 w-20 sm:h-24 sm:w-24" /> : <PackageOpen className="h-8 w-8 text-moss" />}
@@ -233,7 +233,7 @@ function RentalCard({ rental: r, art, onAction, claims = [], onDispute }: { rent
           {interactive && (
             <div className="mt-3">
               <div className="h-2 overflow-hidden rounded-full bg-sand" role="progressbar" aria-label="Plan progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(r.progress * 100)}>
-                <motion.div className="h-full rounded-full bg-moss" initial={{ width: 0 }} animate={{ width: `${r.progress * 100}%` }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} />
+                <m.div className="h-full rounded-full bg-moss" initial={{ width: 0 }} animate={{ width: `${r.progress * 100}%` }} transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }} />
               </div>
               <div className="mt-1.5 flex flex-wrap justify-between gap-x-4 text-xs text-ink-soft">
                 <span>{r.phase === "Awaiting delivery" ? `Delivery ${formatDate(r.startDate)}` : `Started ${formatDate(r.startDate)}`}</span>
@@ -271,7 +271,7 @@ function RentalCard({ rental: r, art, onAction, claims = [], onDispute }: { rent
           )}
         </div>
       )}
-    </motion.article>
+    </m.article>
   );
 }
 
@@ -341,7 +341,7 @@ function Repairs({ requests }: { requests: MaintenanceRequest[] }) {
   return (
     <ul className="space-y-3">
       {requests.map((q, i) => (
-        <motion.li key={q.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="rounded-3xl border border-line bg-paper p-5">
+        <m.li key={q.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="rounded-3xl border border-line bg-paper p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold">{q.productName} <span className="font-normal text-ink-soft">&middot; {q.category}</span></p>
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${requestStyle[q.status]}`}>{q.status}</span>
@@ -349,7 +349,7 @@ function Repairs({ requests }: { requests: MaintenanceRequest[] }) {
           <p className="mt-2 text-sm text-ink-soft">{q.description}</p>
           {q.note && <p className="mt-2 rounded-2xl bg-mint px-3 py-2 text-sm text-forest">Our team: {q.note}</p>}
           <p className="mt-2 text-xs text-ink-soft">{q.id} &middot; raised {q.createdAt ? new Date(q.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}</p>
-        </motion.li>
+        </m.li>
       ))}
     </ul>
   );
@@ -360,7 +360,7 @@ function Orders({ orders }: { orders: Order[] }) {
   return (
     <ul className="space-y-3">
       {orders.map((o, i) => (
-        <motion.li key={o.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="rounded-3xl border border-line bg-paper p-5">
+        <m.li key={o.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="rounded-3xl border border-line bg-paper p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold">{o.id}</p>
             <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-forest">{o.status}</span>
@@ -370,7 +370,7 @@ function Orders({ orders }: { orders: Order[] }) {
             {o.lines.map((l) => (<li key={l.productId}>{l.qty} x {l.name} <span className="text-ink-soft">({l.months} months, {inr(l.rentPerMonth * l.qty)}/mo)</span></li>))}
           </ul>
           <Link href={`/orders/${o.id}`} className="mt-3 inline-block text-sm font-semibold text-moss hover:underline">View order</Link>
-        </motion.li>
+        </m.li>
       ))}
     </ul>
   );

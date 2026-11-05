@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { BarChart3, CalendarClock, CheckCircle2, MapPin, Package, ShieldAlert, Users, Wrench } from "lucide-react";
 import { Overview } from "@/components/admin/Overview";
 import { Schedule } from "@/components/admin/Schedule";
@@ -73,7 +73,7 @@ export function AdminDashboard() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-coral">Admin</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">Admin</p>
           <h1 className="font-display text-4xl font-semibold tracking-tight">Operations dashboard</h1>
         </div>
         <button onClick={() => void reload()} className="rounded-full border border-forest px-5 py-2.5 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white">Refresh</button>
@@ -81,9 +81,9 @@ export function AdminDashboard() {
 
       <AnimatePresence>
         {notice && (
-          <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-5 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest">
+          <m.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-5 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest">
             <CheckCircle2 className="h-4 w-4" /> {notice}
-          </motion.p>
+          </m.p>
         )}
       </AnimatePresence>
       {error && <p role="alert" className="mt-5 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{error}</p>}
@@ -106,7 +106,7 @@ export function AdminDashboard() {
             {[0, 1, 2, 3].map((i) => (<div key={i} className="h-28 animate-pulse rounded-3xl bg-sand" />))}
           </div>
         ) : (
-          <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+          <m.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             {(() => {
               const ctx: Ctx = { data, reload, notify, go: setTab };
               switch (tab) {
@@ -119,7 +119,7 @@ export function AdminDashboard() {
                 case "areas": return <Areas {...ctx} />;
               }
             })()}
-          </motion.div>
+          </m.div>
         )}
       </div>
     </div>

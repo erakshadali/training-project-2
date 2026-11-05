@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import type { Order } from "@/lib/orders";
@@ -60,9 +60,9 @@ export function OrderConfirmation({ id }: { id: string }) {
   const order = state.data;
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 12 }} className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-mint text-forest">
+      <m.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 12 }} className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-mint text-forest">
         <CheckCircle2 className="h-11 w-11" />
-      </motion.div>
+      </m.div>
       <h1 className="font-display mt-6 text-center text-4xl font-semibold tracking-tight">Order placed, {order.name.split(" ")[0]}!</h1>
       <p className="mt-2 text-center text-ink-soft">Order <span className="font-semibold text-ink">{order.id}</span>. A confirmation would go to {order.email} (demo).</p>
 

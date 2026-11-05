@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { tenures, type TenureMonths } from "@/data/config";
@@ -29,7 +29,7 @@ export function CartDrawer() {
     <AnimatePresence>
       {drawerOpen && (
         <>
-          <motion.div
+          <m.div
             key="scrim"
             className="fixed inset-0 z-50 bg-forest-deep/45 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
@@ -37,7 +37,7 @@ export function CartDrawer() {
             exit={{ opacity: 0 }}
             onClick={closeDrawer}
           />
-          <motion.aside
+          <m.aside
             key="panel"
             role="dialog"
             aria-modal="true"
@@ -80,7 +80,7 @@ export function CartDrawer() {
                       const p = getProductById(line.productId);
                       if (!p) return null;
                       return (
-                        <motion.li
+                        <m.li
                           key={line.productId}
                           layout
                           initial={{ opacity: 0, x: 30 }}
@@ -94,7 +94,7 @@ export function CartDrawer() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <p className="truncate text-sm font-semibold">{p.name}</p>
-                              <button onClick={() => remove(p.id)} className="text-ink-soft hover:text-coral" aria-label={`Remove ${p.name}`}>
+                              <button onClick={() => remove(p.id)} className="text-ink-soft hover:text-coral-deep" aria-label={`Remove ${p.name}`}>
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
@@ -126,7 +126,7 @@ export function CartDrawer() {
                               </p>
                             </div>
                           </div>
-                        </motion.li>
+                        </m.li>
                       );
                     })}
                   </AnimatePresence>
@@ -157,7 +157,7 @@ export function CartDrawer() {
                 </div>
               </>
             )}
-          </motion.aside>
+          </m.aside>
         </>
       )}
     </AnimatePresence>

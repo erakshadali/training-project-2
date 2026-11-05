@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Plus } from "lucide-react";
 import type { Product } from "@/data/products";
 import { ProductArt } from "@/components/ProductArt";
@@ -14,16 +14,13 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
   const soldOut = product.stock <= 0;
 
   return (
-    <motion.article
+    <m.article
       layout
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.45, delay: Math.min(index, 6) * 0.05, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -6 }}
       className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-paper shadow-[0_1px_0_rgba(19,35,31,0.04)] transition-shadow hover:shadow-[0_18px_40px_-18px_rgba(13,59,51,0.35)]"
     >
-      <Link href={`/products/${product.slug}`} className="block" aria-label={product.name}>
+      <div className="rise flex h-full flex-col" style={{ "--d": `${Math.min(index, 6) * 0.05}s` } as React.CSSProperties}>
+      <Link href={`/products/${product.slug}`} className="block" aria-hidden tabIndex={-1}>
         <div className="relative grid aspect-[4/3] place-items-center overflow-hidden bg-sand">
           <div className="grain absolute inset-0 opacity-70" aria-hidden />
           <div
@@ -62,17 +59,18 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
               <span className="text-xs font-medium text-ink-soft"> /month</span>
             </p>
           </div>
-          <motion.button
+          <m.button
             whileTap={{ scale: 0.9 }}
             onClick={() => add(product.id, 12)}
             disabled={soldOut}
             className="flex h-10 items-center gap-1.5 rounded-full bg-forest px-4 text-sm font-semibold text-white transition hover:bg-coral disabled:cursor-not-allowed disabled:bg-ink-soft/40 disabled:hover:bg-ink-soft/40"
-            aria-label={`Add ${product.name} to cart`}
+            aria-label={`${soldOut ? "Sold out" : "Rent"}: ${product.name}`}
           >
             <Plus className="h-4 w-4" /> {soldOut ? "Sold out" : "Rent"}
-          </motion.button>
+          </m.button>
         </div>
       </div>
-    </motion.article>
+      </div>
+    </m.article>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Check, ChevronRight, Minus, Plus, ShieldCheck, Truck, Wrench } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import { ProductCard } from "@/components/ProductCard";
@@ -41,14 +41,14 @@ export function ProductDetail({ product }: { product: Product }) {
       </nav>
 
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="relative grid aspect-square place-items-center overflow-hidden rounded-[2.5rem] bg-sand lg:sticky lg:top-24 lg:self-start">
+        <div className="pop relative grid aspect-square place-items-center overflow-hidden rounded-[2.5rem] bg-sand lg:sticky lg:top-24 lg:self-start">
           <div className="grain absolute inset-0 opacity-70" aria-hidden />
           <div className="absolute h-2/3 w-2/3 rounded-full opacity-30 blur-3xl" style={{ background: product.tint }} aria-hidden />
-          <motion.div key={months} initial={{ y: 10, opacity: 0.6 }} animate={{ y: 0, opacity: 1 }} className="float-slow relative w-[86%]">
+          <div className="float-slow relative w-[86%]">
             <ProductArt kind={product.art} tint={product.tint} />
-          </motion.div>
+          </div>
           {product.popular && <span className="absolute left-5 top-5 rounded-full bg-coral px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Popular</span>}
-        </motion.div>
+        </div>
 
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-moss">{product.subcategory}</p>
@@ -78,9 +78,9 @@ export function ProductDetail({ product }: { product: Product }) {
               <div>
                 <p className="text-sm text-ink-soft">Monthly rent</p>
                 <AnimatePresence mode="popLayout">
-                  <motion.p key={rent * qty} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="font-display text-4xl font-semibold text-forest">
+                  <m.p key={rent * qty} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="font-display text-4xl font-semibold text-forest">
                     {inr(rent * qty)}
-                  </motion.p>
+                  </m.p>
                 </AnimatePresence>
               </div>
               <div className="text-right text-sm">
@@ -95,14 +95,14 @@ export function ProductDetail({ product }: { product: Product }) {
                 <span className="w-8 text-center font-semibold" aria-live="polite">{qty}</span>
                 <button onClick={() => setQty((q) => Math.min(maxQty, q + 1))} className="grid h-12 w-12 place-items-center" aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
               </div>
-              <motion.button
+              <m.button
                 whileTap={{ scale: 0.97 }}
                 onClick={onAdd}
                 disabled={soldOut}
                 className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-full px-6 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-ink-soft/40 ${added ? "bg-moss" : "bg-coral hover:bg-coral-deep"}`}
               >
                 {soldOut ? "Sold out" : added ? <><Check className="h-5 w-5" /> Added to cart</> : "Add to cart"}
-              </motion.button>
+              </m.button>
             </div>
             <p className="mt-3 text-center text-xs text-ink-soft">
               {soldOut ? "Currently unavailable. Check back soon." : product.stock <= 5 ? <span className="font-semibold text-coral-deep">Only {product.stock} left. </span> : null}

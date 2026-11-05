@@ -17,7 +17,7 @@ With no `MONGODB_URI` the dev server starts a temporary in-memory MongoDB, seeds
 `ADMIN_PASSWORD` are set) an admin account. Data resets when the server restarts. For a real database, set `MONGODB_URI`
 (for example a free MongoDB Atlas cluster). In production `MONGODB_URI` and `AUTH_SECRET` are required.
 
-## What works now (build steps 1 to 4)
+## What works now
 
 - Catalog of 17 products loaded from MongoDB, with stock tracking (sold out and low stock states)
 - Search, filters, sorting, product pages with live plan pricing, cart drawer and cart page
@@ -78,9 +78,24 @@ With no `MONGODB_URI` the dev server starts a temporary in-memory MongoDB, seeds
 
 All `/api/admin/*` routes return 401 when logged out and 403 for customers.
 
-## Roadmap
+## Documentation
 
-Step 5: PRD and technical
-documentation, tests and deployment.
+- [Product requirements (PRD)](docs/PRD.md): problem, objectives, scope, requirements, business rules, KPIs and measured results
+- [Technical documentation](docs/TECHNICAL.md): architecture, data model, full API reference, security, testing, deployment
+
+## Tests and checks
+
+```bash
+npm test            # 26 unit tests: pricing, plan dates, price tiers, early closure fee, deposit refunds
+npm run typecheck   # strict TypeScript
+npm run lint        # ESLint
+BASE_URL=http://localhost:3000 bash scripts/api-test-admin.sh     # end-to-end API tests (needs a running server)
+BASE_URL=http://localhost:3000 bash scripts/api-test-rentals.sh
+```
+
+## Deploy
+
+Vercel plus MongoDB Atlas. Set `MONGODB_URI`, `AUTH_SECRET` and, optionally, `ADMIN_EMAIL` and `ADMIN_PASSWORD` as environment
+variables, then deploy. Full steps are in [docs/TECHNICAL.md](docs/TECHNICAL.md#10-deployment-vercel-and-mongodb-atlas).
 
 Payments are a simulation. No card or bank details are collected.

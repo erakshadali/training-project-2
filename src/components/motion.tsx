@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useInView, useMotionValue, useSpring, type HTMLMotionProps } from "framer-motion";
+import { m, useInView, useMotionValue, useSpring, type HTMLMotionProps } from "framer-motion";
 import { useEffect, useRef } from "react";
 
 type RevealProps = HTMLMotionProps<"div"> & { delay?: number; y?: number };
@@ -8,7 +8,7 @@ type RevealProps = HTMLMotionProps<"div"> & { delay?: number; y?: number };
 /** Fades and lifts content into view the first time it scrolls on screen. */
 export function Reveal({ delay = 0, y = 24, children, ...rest }: RevealProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
@@ -16,7 +16,7 @@ export function Reveal({ delay = 0, y = 24, children, ...rest }: RevealProps) {
       {...rest}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 

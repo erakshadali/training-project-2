@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
 import { categories, type Category } from "@/data/products";
@@ -49,7 +49,7 @@ export function ProductsView() {
   const filters = (
     <div className="space-y-7">
       <div>
-        <h3 className="text-sm font-semibold">Category</h3>
+        <h2 className="text-sm font-semibold">Category</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {categories.map((c) => (
             <button
@@ -64,7 +64,7 @@ export function ProductsView() {
         </div>
       </div>
       <div>
-        <h3 className="text-sm font-semibold">Type</h3>
+        <h2 className="text-sm font-semibold">Type</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {subcategories.map((s) => (
             <button
@@ -82,7 +82,7 @@ export function ProductsView() {
         <label htmlFor="max" className="flex justify-between text-sm font-semibold">
           Max monthly rent <span className="text-forest">{inr(maxRent)}</span>
         </label>
-        <input id="max" type="range" min={200} max={1300} step={50} value={maxRent} onChange={(e) => setMaxRent(Number(e.target.value))} className="mt-3 w-full accent-[#e5603a]" />
+        <input id="max" type="range" min={200} max={1300} step={50} value={maxRent} onChange={(e) => setMaxRent(Number(e.target.value))} className="mt-3 w-full accent-[#c24424]" />
         <p className="mt-1 text-xs text-ink-soft">Based on the 12 month plan.</p>
       </div>
       <button
@@ -102,12 +102,12 @@ export function ProductsView() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="rise">
         <h1 className="font-display text-4xl font-semibold tracking-tight">
           {category === "furniture" ? "Furniture on rent" : category === "appliances" ? "Appliances on rent" : "Everything on rent"}
         </h1>
         <p className="mt-2 text-ink-soft">Monthly plans from 3 to 12 months. Delivery, setup and repairs are always free.</p>
-      </motion.div>
+      </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <label className="relative min-w-[14rem] flex-1">
@@ -149,13 +149,13 @@ export function ProductsView() {
               <p className="mt-1 text-sm text-ink-soft">Try a higher rent limit or a different search.</p>
             </div>
           ) : (
-            <motion.div layout className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <m.div layout className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               <AnimatePresence mode="popLayout">
                 {list.map((p, i) => (
                   <ProductCard key={p.id} product={p} index={i} />
                 ))}
               </AnimatePresence>
-            </motion.div>
+            </m.div>
           )}
         </div>
       </div>
@@ -163,8 +163,8 @@ export function ProductsView() {
       <AnimatePresence>
         {filtersOpen && (
           <>
-            <motion.div className="fixed inset-0 z-50 bg-forest-deep/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setFiltersOpen(false)} />
-            <motion.div
+            <m.div className="fixed inset-0 z-50 bg-forest-deep/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setFiltersOpen(false)} />
+            <m.div
               role="dialog"
               aria-modal="true"
               aria-label="Filters"
@@ -184,7 +184,7 @@ export function ProductsView() {
               <button onClick={() => setFiltersOpen(false)} className="mt-6 w-full rounded-full bg-forest py-3 font-semibold text-white">
                 Show {list.length} {list.length === 1 ? "product" : "products"}
               </button>
-            </motion.div>
+            </m.div>
           </>
         )}
       </AnimatePresence>

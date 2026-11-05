@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/context/CartContext";
@@ -40,7 +40,7 @@ export function CartView() {
               const p = getProductById(line.productId);
               if (!p) return null;
               return (
-                <motion.li
+                <m.li
                   key={line.productId}
                   layout
                   initial={{ opacity: 0, y: 16 }}
@@ -57,7 +57,7 @@ export function CartView() {
                         <Link href={`/products/${p.slug}`} className="font-semibold hover:text-moss">{p.name}</Link>
                         <p className="text-sm text-ink-soft">Deposit {inr(p.deposit)} each</p>
                       </div>
-                      <button onClick={() => remove(p.id)} className="text-ink-soft hover:text-coral" aria-label={`Remove ${p.name}`}><Trash2 className="h-5 w-5" /></button>
+                      <button onClick={() => remove(p.id)} className="text-ink-soft hover:text-coral-deep" aria-label={`Remove ${p.name}`}><Trash2 className="h-5 w-5" /></button>
                     </div>
                     <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
                       <div className="flex flex-wrap items-center gap-3">
@@ -80,7 +80,7 @@ export function CartView() {
                       </p>
                     </div>
                   </div>
-                </motion.li>
+                </m.li>
               );
             })}
           </AnimatePresence>
