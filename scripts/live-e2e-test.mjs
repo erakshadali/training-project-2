@@ -8,7 +8,7 @@ const ROOT = process.cwd();
 const env = {};
 for (const l of fs.readFileSync(`${ROOT}/.env.local`, "utf8").split("\n")) {
   const m = l.match(/^([A-Z_]+)=(.*)$/);
-  if (m && !l.startsWith("#")) env[m[1]] = m[2].trim();
+  if (m && !l.startsWith("#")) env[m[1]] = process.env[m[1]] ?? m[2].trim();
 }
 const B = process.argv[2] || "https://rentease-one-khaki.vercel.app";
 
@@ -136,6 +136,12 @@ const order = (j, city, lines, extra = {}) => j.call("/api/orders", "POST", { ..
   for (const pid of toDeliver) {
     const rn = rentals.find((x) => x.productId === pid && x.phase === "Awaiting delivery");
     ids[pid] = rn.id;
+    // Since the order pipeline, an item can only be delivered once its order is out for delivery.
+    if (pid === toDeliver[0]) {
+      r = await admin.call(`/api/admin/rentals/${rn.id}/deliver`, "POST");
+      check("delivering before the order is out for delivery is refused (409)", r.status === 409, JSON.stringify(r.data));
+    }
+    for (const a of ["confirm", "pack", "dispatch"]) await admin.call(`/api/admin/orders/${rn.orderId}`, "POST", { action: a });
     r = await admin.call(`/api/admin/rentals/${rn.id}/deliver`, "POST");
     check(`admin marks ${pid} delivered`, r.status === 200 && r.data.rental.phase === "Active");
   }
