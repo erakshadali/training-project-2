@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Product } from "@/data/products";
 import { dimsFor } from "@/lib/roomDims";
+import { photoSize, ROOM_PHOTOS } from "@/lib/roomPhotos";
 import type { Calibration } from "@/lib/roomMath";
 import { buildModel, disposeModel } from "@/components/room/models";
 
@@ -25,6 +26,8 @@ type Props = {
   problems: Record<string, Problem | undefined>;
   brightness: number;
   lightAngle: number;
+  /** Show product photos where we have them. Off shows the 3D models only. */
+  usePhotos?: boolean;
   onSelect: (id: string | null) => void;
   onMove: (id: string, x: number, z: number) => void;
   /** Receives { exportPng }. A prop, not a ref, so the component can be loaded lazily. */
@@ -37,7 +40,7 @@ type Live = {
   camera: THREE.PerspectiveCamera;
   hemi: THREE.HemisphereLight;
   sun: THREE.DirectionalLight;
-  models: Map<string, { group: THREE.Group; pid: string }>;
+  models: Map<string, { group: THREE.Group; pid: string; kind: "model" | "photo" }>;
   outline: THREE.Group;
   render: () => void;
 };
@@ -49,6 +52,9 @@ export function Scene(props: Props) {
   const live = useRef<Live | null>(null);
   const latest = useRef(props);
   const photo = useRef<HTMLImageElement | null>(null);
+  // Product photo textures are cached; null means the file could not be loaded.
+  const textures = useRef(new Map<string, THREE.Texture | null>());
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     latest.current = props;
@@ -222,21 +228,94 @@ export function Scene(props: Props) {
     const byId = new Map(products.map((p) => [p.id, p]));
     const seen = new Set<string>();
 
+    const texFor = (pid: string): THREE.Texture | null => {
+      const src = ROOM_PHOTOS[pid];
+      if (!src || props.usePhotos === false) return null;
+      const cache = textures.current;
+      if (!cache.has(src)) {
+        cache.set(src, null);
+        new THREE.TextureLoader().load(
+          src,
+          (t) => {
+            t.colorSpace = THREE.SRGBColorSpace;
+            t.anisotropy = 4;
+            cache.set(src, t);
+            setTick((n) => n + 1);
+          },
+          undefined,
+          () => cache.set(src, null),
+        );
+      }
+      return cache.get(src) ?? null;
+    };
+
     for (const it of items) {
       const product = byId.get(it.pid);
       if (!product) continue;
       seen.add(it.id);
+      const tex = texFor(it.pid);
+      const want = tex ? "photo" : "model";
       let m = l.models.get(it.id);
+      if (m && m.kind !== want) {
+        l.scene.remove(m.group);
+        disposeModel(m.group);
+        l.models.delete(it.id);
+        m = undefined;
+      }
+      const dims = dimsFor(product);
       if (!m) {
         const group = new THREE.Group();
         group.userData.itemId = it.id;
-        group.add(buildModel(product.art, product.tint, dimsFor(product)));
+        if (tex) {
+          const img = tex.image as { width: number; height: number };
+          const size = photoSize(img.width / img.height, dims);
+          const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide, toneMapped: false });
+          const plane = new THREE.Mesh(new THREE.PlaneGeometry(size.w, size.h), mat);
+          plane.name = "photo";
+          plane.position.y = size.h / 2 + (dims.lift ?? 0);
+          group.add(plane);
+          // soft contact shadow so the cut-out sits on the floor
+          const c = document.createElement("canvas");
+          c.width = c.height = 64;
+          const g = c.getContext("2d")!;
+          const grad = g.createRadialGradient(32, 32, 4, 32, 32, 32);
+          grad.addColorStop(0, "rgba(0,0,0,0.5)");
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          g.fillStyle = grad;
+          g.fillRect(0, 0, 64, 64);
+          const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+          sh.name = "shade";
+          sh.rotation.x = -Math.PI / 2;
+          sh.position.y = 0.012;
+          sh.scale.set(dims.w * 1.05, dims.d * 1.1, 1);
+          if (!dims.lift) group.add(sh);
+        } else {
+          group.add(buildModel(product.art, product.tint, dims));
+        }
         l.scene.add(group);
-        m = { group, pid: it.pid };
+        m = { group, pid: it.pid, kind: want };
         l.models.set(it.id, m);
       }
       m.group.position.set(it.x, 0, it.z);
-      m.group.rotation.y = it.rot;
+      if (m.kind === "photo") {
+        // The photo always turns to face the camera. Turning the piece mirrors it, and the floor shade follows its footprint.
+        m.group.rotation.y = 0;
+        const plane = m.group.getObjectByName("photo") as THREE.Mesh;
+        const yaw = Math.atan2(cal.position[0] - it.x, cal.position[2] - it.z);
+        plane.rotation.y = yaw;
+        // In a three-quarter photo the lowest legs are the front ones, so line the photo's bottom up with the front of the footprint.
+        const dist = Math.hypot(cal.position[0] - it.x, cal.position[2] - it.z) || 1;
+        const front = dimsFor(product).d * 0.3;
+        plane.position.x = ((cal.position[0] - it.x) / dist) * front;
+        plane.position.z = ((cal.position[2] - it.z) / dist) * front;
+        const mirrored = Math.cos(it.rot) < -0.01;
+        plane.scale.x = mirrored ? -1 : 1;
+        (plane.material as THREE.MeshBasicMaterial).color.setScalar(Math.min(1.1, 0.8 + 0.2 * brightness));
+        const shade = m.group.getObjectByName("shade");
+        if (shade) shade.rotation.z = -it.rot;
+      } else {
+        m.group.rotation.y = it.rot;
+      }
     }
     for (const [id, m] of l.models) {
       if (!seen.has(id)) {

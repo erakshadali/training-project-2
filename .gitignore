@@ -48,3 +48,6 @@ next-env.d.ts
 
 # alternate dev build folders
 /.next-*/
+
+# third-party product photos used for local Room Studio experiments, never committed
+/public/room-photos/

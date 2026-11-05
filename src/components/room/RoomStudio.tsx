@@ -129,6 +129,8 @@ export function RoomStudio() {
   const [lightAngle, setLightAngle] = useState(215);
   const [toast, setToast] = useState("");
   const [step, setStep] = useState<0.25 | 1>(1);
+  const [usePhotos, setUsePhotos] = useState(true);
+  const [confirmClear, setConfirmClear] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
   const [saved, setSaved] = useState<SavedSummary[]>([]);
@@ -481,6 +483,12 @@ export function RoomStudio() {
     setSelectedId((s) => (s === id ? null : s));
   }, []);
 
+  const clearAll = useCallback(() => {
+    setItems([]);
+    setSelectedId(null);
+    say("Removed every piece. The room is empty again.");
+  }, [say]);
+
   const duplicate = useCallback((id: string) => {
     setItems((cur) => {
       const src = cur.find((i) => i.id === id);
@@ -570,270 +578,297 @@ export function RoomStudio() {
   }
 
   if (stage === "studio" && photo && cal && colors) {
+    const aspect = photo.w / photo.h;
+    const deg = selected ? Math.round(((((selected.rot * 180) / Math.PI) % 360) + 360) % 360) : 0;
+    const iconBtn = "grid h-8 w-8 place-items-center rounded-lg border border-line hover:border-moss";
+    const tool = "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition";
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <button onClick={() => setStage("floor")} className="flex items-center gap-1.5 text-sm font-semibold text-moss hover:underline"><ArrowLeft className="h-4 w-4" /> Adjust the floor</button>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={autoFurnish} className="flex items-center gap-1.5 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral-deep"><Wand2 className="h-4 w-4" /> Furnish it for me</button>
-            <button onClick={() => { setSaveOpen((o) => !o); setSaveError(""); }} aria-expanded={saveOpen} className="flex items-center gap-1.5 rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white"><Save className="h-4 w-4" /> Save layout</button>
-            <button onClick={download} disabled={!items.length} className="flex items-center gap-1.5 rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white disabled:opacity-40"><Download className="h-4 w-4" /> Download picture</button>
+      <div className="mx-auto max-w-[112rem] px-3 py-3 sm:px-5 lg:flex lg:h-[calc(100dvh-4rem)] lg:flex-col lg:overflow-hidden">
+        {/* One toolbar with everything for the photo: change it, fix the floor, furnish, save, download, clear */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => setStage("floor")} className={`${tool} border border-line text-moss hover:border-moss`}><ArrowLeft className="h-4 w-4" /> Adjust floor</button>
+          <label className={`${tool} cursor-pointer border border-line text-moss hover:border-moss`}>
+            <ImagePlus className="h-4 w-4" /> Change photo
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
+          </label>
+          <button onClick={autoFurnish} className={`${tool} bg-coral text-white hover:bg-coral-deep`}><Wand2 className="h-4 w-4" /> Furnish it for me</button>
+
+          <div className="relative">
+            <button onClick={() => { setSaveOpen((o) => !o); setSaveError(""); }} aria-expanded={saveOpen} className={`${tool} border border-forest text-forest hover:bg-forest hover:text-white`}><Save className="h-4 w-4" /> Save layout</button>
+            {saveOpen && (
+              <div className="absolute left-0 top-full z-40 mt-2 w-[min(26rem,calc(100vw-1.5rem))] rounded-3xl border-2 border-forest bg-paper p-4 shadow-xl">
+                {!user ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-ink-soft">Log in to save this room to your account. Your photo and furniture are held for you while you log in.</p>
+                    <button onClick={keepDraftAndLogin} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral">Log in to save</button>
+                  </div>
+                ) : (
+                  <form onSubmit={(e) => { e.preventDefault(); void saveLayout(false); }} className="space-y-3">
+                    <label className="block text-sm font-semibold">Layout name
+                      <input value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={40} className="mt-1.5 w-full rounded-2xl border border-line bg-cream px-4 py-2.5 font-normal outline-none focus:border-moss" />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="submit" disabled={saveBusy} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral disabled:opacity-50">{saveBusy ? "Saving..." : savedId ? "Update saved layout" : "Save"}</button>
+                      {savedId && <button type="button" disabled={saveBusy} onClick={() => void saveLayout(true)} className="rounded-full border border-forest px-5 py-2.5 text-sm font-semibold text-forest hover:bg-forest hover:text-white disabled:opacity-50">Save as new</button>}
+                      <button type="button" onClick={() => setSaveOpen(false)} className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft hover:border-moss">Close</button>
+                    </div>
+                    <p className="text-xs text-ink-soft">Up to {savedMax} layouts. Your photo is saved to your account with the furniture positions.</p>
+                  </form>
+                )}
+                {saveError && <p role="alert" className="mt-3 rounded-2xl bg-coral/10 px-4 py-2.5 text-sm font-medium text-coral-deep">{saveError}</p>}
+              </div>
+            )}
+          </div>
+
+          <button onClick={download} disabled={!items.length} className={`${tool} border border-forest text-forest hover:bg-forest hover:text-white disabled:opacity-40`}><Download className="h-4 w-4" /> Download picture</button>
+
+          {confirmClear ? (
+            <span className="flex items-center gap-2 rounded-full bg-coral/10 py-1 pl-4 pr-1 text-sm font-semibold text-coral-deep">
+              Remove all {items.length}?
+              <button onClick={() => { clearAll(); setConfirmClear(false); }} className="rounded-full bg-coral-deep px-3.5 py-1.5 text-white">Yes</button>
+              <button onClick={() => setConfirmClear(false)} className="rounded-full bg-paper px-3.5 py-1.5 text-ink">No</button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirmClear(true)} disabled={!items.length} className={`${tool} border border-line text-coral-deep hover:border-coral disabled:opacity-40`}><Trash2 className="h-4 w-4" /> Remove all</button>
+          )}
+
+          <div className="flex items-center gap-1.5 lg:ml-auto" role="group" aria-label="Look of the furniture">
+            <span className="text-xs font-semibold text-ink-soft">Look</span>
+            {([[true, "Photos"], [false, "3D"]] as [boolean, string][]).map(([v, l]) => (
+              <button key={l} onClick={() => setUsePhotos(v)} aria-pressed={usePhotos === v} title={v ? "Use product photos where we have one" : "Use 3D models only"} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${usePhotos === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
+            ))}
           </div>
         </div>
 
-        {saveOpen && (
-          <div className="mt-4 rounded-3xl border-2 border-forest bg-paper p-4">
-            {!user ? (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="max-w-xl text-sm text-ink-soft">Log in to save this room to your account. We keep your photo and furniture so you can come back to it. Your work here is held for you while you log in.</p>
-                <button onClick={keepDraftAndLogin} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral">Log in to save</button>
-              </div>
-            ) : (
-              <form onSubmit={(e) => { e.preventDefault(); void saveLayout(false); }} className="flex flex-wrap items-end gap-3">
-                <label className="min-w-0 flex-1 text-sm font-semibold">Layout name
-                  <input value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={40} className="mt-1.5 w-full rounded-2xl border border-line bg-cream px-4 py-2.5 font-normal outline-none focus:border-moss" />
-                </label>
-                <button type="submit" disabled={saveBusy} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral disabled:opacity-50">{saveBusy ? "Saving..." : savedId ? "Update saved layout" : "Save"}</button>
-                {savedId && <button type="button" disabled={saveBusy} onClick={() => void saveLayout(true)} className="rounded-full border border-forest px-5 py-2.5 text-sm font-semibold text-forest hover:bg-forest hover:text-white disabled:opacity-50">Save as new</button>}
-                <p className="w-full text-xs text-ink-soft">You can keep up to {savedMax} layouts. Your photo is saved to your account along with the furniture positions.</p>
-              </form>
-            )}
-            {saveError && <p role="alert" className="mt-3 rounded-2xl bg-coral/10 px-4 py-2.5 text-sm font-medium text-coral-deep">{saveError}</p>}
-          </div>
-        )}
-
         <AnimatePresence>
-          {toast && <m.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-4 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest"><Check className="h-4 w-4" /> {toast}</m.p>}
+          {toast && <m.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="fixed bottom-4 left-1/2 z-50 flex w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-2 rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white shadow-xl"><Check className="h-4 w-4 shrink-0" /> {toast}</m.p>}
         </AnimatePresence>
 
-        <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_24rem]">
-          <div className="min-w-0 contents lg:block">
-            <div className="sticky top-[4.25rem] z-20 -mx-4 bg-cream/95 px-4 pb-2 pt-1 backdrop-blur sm:mx-0 sm:px-0 lg:static lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-            <div className="relative">
-              <Scene
-                handleRef={sceneRef}
-                photoUrl={photo.url} imgW={photo.w} imgH={photo.h} cal={cal} W={Wn} D={Dn}
-                items={items} selectedId={selectedId} products={products} problems={problems}
-                brightness={brightness} lightAngle={lightAngle}
-                onSelect={setSelectedId} onMove={move}
-              />
-              {/* Numbered tags so every piece in the photo matches its row in the list */}
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-                {items.map((it, i) => {
-                  const p = productById.get(it.pid);
-                  if (!p) return null;
-                  const at = cal.project([it.x, dimsFor(p).h + 0.4 + (dimsFor(p).lift ?? 0), it.z]);
-                  const on = it.id === selectedId;
-                  return (
-                    <button
-                      key={it.id}
-                      onClick={() => setSelectedId(it.id)}
-                      aria-label={`Select ${p.name}`}
-                      className={`pointer-events-auto absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-bold shadow-md transition ${on ? "scale-125 bg-forest text-white" : problems[it.id] ? "bg-coral text-white" : "bg-white text-forest hover:scale-110"}`}
-                      style={{ left: `${(at.x / photo.w) * 100}%`, top: `${(at.y / photo.h) * 100}%` }}
-                    >{i + 1}</button>
-                  );
-                })}
+        <div className="mt-3 grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="min-w-0 contents lg:flex lg:min-h-0 lg:flex-col lg:items-center lg:justify-center lg:gap-2">
+            <div
+              className="sticky top-[4.25rem] z-20 -mx-3 bg-cream/95 px-3 pb-2 pt-1 backdrop-blur sm:-mx-5 sm:px-5 lg:static lg:mx-0 lg:w-[min(100%,calc((100dvh_-_12.5rem)*var(--ar)))] lg:bg-transparent lg:p-0 lg:backdrop-blur-none"
+              style={{ "--ar": aspect } as React.CSSProperties}
+            >
+              <div className="relative">
+                <Scene
+                  handleRef={sceneRef}
+                  photoUrl={photo.url} imgW={photo.w} imgH={photo.h} cal={cal} W={Wn} D={Dn}
+                  items={items} selectedId={selectedId} products={products} problems={problems}
+                  brightness={brightness} lightAngle={lightAngle} usePhotos={usePhotos}
+                  onSelect={setSelectedId} onMove={move}
+                />
+                {/* Numbered tags so every piece in the photo matches its row in the list */}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+                  {items.map((it, i) => {
+                    const p = productById.get(it.pid);
+                    if (!p) return null;
+                    const at = cal.project([it.x, dimsFor(p).h + 0.4 + (dimsFor(p).lift ?? 0), it.z]);
+                    const on = it.id === selectedId;
+                    return (
+                      <button
+                        key={it.id}
+                        onClick={() => setSelectedId(it.id)}
+                        aria-label={`Select ${p.name}`}
+                        className={`pointer-events-auto absolute grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-xs font-bold shadow-md transition ${on ? "scale-125 bg-forest text-white" : problems[it.id] ? "bg-coral text-white" : "bg-white text-forest hover:scale-110"}`}
+                        style={{ left: `${(at.x / photo.w) * 100}%`, top: `${(at.y / photo.h) * 100}%` }}
+                      >{i + 1}</button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            </div>
-            <ol className="mt-3 grid gap-2 rounded-2xl bg-sand px-4 py-3 text-sm text-ink-soft sm:grid-cols-3">
-              <li><strong className="text-ink">1. Add:</strong> tap a piece in the furniture list.</li>
-              <li><strong className="text-ink">2. Select:</strong> tap its numbered tag or click it in the photo. A green outline shows it is selected.</li>
-              <li><strong className="text-ink">3. Arrange:</strong> drag it, or use the Arrange box to move, turn or snap it to a wall.</li>
-            </ol>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm font-semibold">
-                <span className="flex items-center gap-1.5"><Lightbulb className="h-4 w-4 text-moss" /> Room brightness</span>
-                <input type="range" min={0.5} max={1.5} step={0.05} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="mt-2 w-full accent-[#c24424]" />
+            {items.length === 0 && (
+              <p className="rounded-2xl bg-sand px-4 py-2.5 text-sm text-ink-soft lg:w-full"><strong className="text-ink">Start:</strong> tap a piece in the furniture list, then drag it in the photo or use the Arrange box. <strong className="text-ink">Furnish it for me</strong> fills the room for you.</p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 lg:w-full">
+              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-3 py-2 text-xs font-semibold">
+                <Lightbulb className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Brightness</span>
+                <input type="range" min={0.5} max={1.5} step={0.05} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
               </label>
-              <label className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm font-semibold">
-                <span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-moss" /> Light direction</span>
-                <input type="range" min={0} max={360} step={5} value={lightAngle} onChange={(e) => setLightAngle(Number(e.target.value))} className="mt-2 w-full accent-[#c24424]" />
+              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-3 py-2 text-xs font-semibold">
+                <Sparkles className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Light</span>
+                <input type="range" min={0} max={360} step={5} value={lightAngle} onChange={(e) => setLightAngle(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
               </label>
             </div>
-            <p className="mt-2 text-xs text-ink-soft">Match the shadows to the light in your photo. Your photo stays in your browser and is never uploaded.</p>
           </div>
 
-          <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+          <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:gap-2">
             <AnimatePresence>
               {selected && selectedProduct && (
-                <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-3 rounded-3xl border-2 border-forest bg-paper p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">Arrange piece {items.findIndex((i) => i.id === selected.id) + 1}</p>
-                  <p className="truncate text-sm font-semibold">{selectedProduct.name}</p>
-                  <p className="text-xs text-ink-soft">{dimsFor(selectedProduct).w} x {dimsFor(selectedProduct).d} x {dimsFor(selectedProduct).h} ft. The arrow on the floor shows which way its front faces.</p>
-                  {problems[selected.id] && <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-coral/10 px-3 py-2 text-xs font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {problems[selected.id] === "overlap" ? "This piece overlaps another one. Move it apart." : "This piece is outside the floor area."}</p>}
+                <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-3xl border-2 border-forest bg-paper p-3.5 lg:shrink-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-moss">Arrange piece {items.findIndex((i) => i.id === selected.id) + 1} &middot; {dimsFor(selectedProduct).w} x {dimsFor(selectedProduct).d} x {dimsFor(selectedProduct).h} ft</p>
+                      <p className="truncate text-sm font-semibold">{selectedProduct.name}</p>
+                    </div>
+                    <button onClick={() => setSelectedId(null)} className="shrink-0 rounded-full bg-forest px-3.5 py-1.5 text-xs font-semibold text-white">Done</button>
+                  </div>
+                  {problems[selected.id] && <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-coral/10 px-3 py-1.5 text-xs font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {problems[selected.id] === "overlap" ? "Overlaps another piece. Move it apart." : "Outside the floor area."}</p>}
 
-                  <div className="mt-3 flex items-center gap-4">
-                    <div className="grid grid-cols-3 gap-1" role="group" aria-label="Move piece">
+                  <div className="mt-2.5 flex gap-3">
+                    <div className="grid shrink-0 grid-cols-3 gap-1" role="group" aria-label="Move piece">
                       <span />
-                      <button onClick={() => nudge(selected.id, 0, -step)} aria-label="Move farther from you" className="grid h-10 w-10 place-items-center rounded-xl border border-line hover:border-moss"><ChevronUp className="h-5 w-5" /></button>
+                      <button onClick={() => nudge(selected.id, 0, -step)} aria-label="Move farther from you" title="Farther" className={iconBtn}><ChevronUp className="h-4 w-4" /></button>
                       <span />
-                      <button onClick={() => nudge(selected.id, -step, 0)} aria-label="Move left" className="grid h-10 w-10 place-items-center rounded-xl border border-line hover:border-moss"><ChevronLeft className="h-5 w-5" /></button>
-                      <span className="grid h-10 w-10 place-items-center text-[10px] font-semibold text-ink-soft">Move</span>
-                      <button onClick={() => nudge(selected.id, step, 0)} aria-label="Move right" className="grid h-10 w-10 place-items-center rounded-xl border border-line hover:border-moss"><ChevronRight className="h-5 w-5" /></button>
+                      <button onClick={() => nudge(selected.id, -step, 0)} aria-label="Move left" title="Left" className={iconBtn}><ChevronLeft className="h-4 w-4" /></button>
+                      <span className="grid h-8 w-8 place-items-center text-[10px] font-semibold text-ink-soft">Move</span>
+                      <button onClick={() => nudge(selected.id, step, 0)} aria-label="Move right" title="Right" className={iconBtn}><ChevronRight className="h-4 w-4" /></button>
                       <span />
-                      <button onClick={() => nudge(selected.id, 0, step)} aria-label="Move closer to you" className="grid h-10 w-10 place-items-center rounded-xl border border-line hover:border-moss"><ChevronDown className="h-5 w-5" /></button>
+                      <button onClick={() => nudge(selected.id, 0, step)} aria-label="Move closer to you" title="Closer" className={iconBtn}><ChevronDown className="h-4 w-4" /></button>
                       <span />
                     </div>
-                    <div className="min-w-0 flex-1 text-xs">
-                      <p className="font-semibold">Step size</p>
-                      <div className="mt-1.5 flex gap-1.5">
-                        {([[0.25, "Small"], [1, "Big"]] as [0.25 | 1, string][]).map(([v, l]) => (
-                          <button key={v} onClick={() => setStep(v)} aria-pressed={step === v} className={`flex-1 rounded-full px-2 py-1.5 font-semibold ${step === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
+                    <div className="min-w-0 flex-1 space-y-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold">Step</span>
+                        {([[0.25, "3 in"], [1, "1 ft"]] as [0.25 | 1, string][]).map(([v, l]) => (
+                          <button key={v} onClick={() => setStep(v)} aria-pressed={step === v} className={`flex-1 rounded-full px-2 py-1 font-semibold ${step === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
                         ))}
                       </div>
-                      <p className="mt-1.5 text-ink-soft">{step === 1 ? "1 ft" : "3 inches"} per tap</p>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn 90 degrees left" className={iconBtn}><RotateCcw className="h-4 w-4" /></button>
+                        <input type="range" min={0} max={359} step={1} value={deg} onChange={(e) => setAngle(selected.id, Number(e.target.value))} aria-label={`Turn, ${deg} degrees`} className="min-w-0 flex-1 accent-[#c24424]" />
+                        <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn 90 degrees right" className={iconBtn}><RotateCw className="h-4 w-4" /></button>
+                      </div>
+                      <p className="text-ink-soft">Turn {deg}°</p>
                     </div>
                   </div>
 
-                  <label className="mt-3 block text-xs font-semibold">
-                    Turn: {Math.round(((((selected.rot * 180) / Math.PI) % 360) + 360) % 360)}°
-                    <input type="range" min={0} max={359} step={1} value={Math.round(((((selected.rot * 180) / Math.PI) % 360) + 360) % 360)} onChange={(e) => setAngle(selected.id, Number(e.target.value))} className="mt-1 w-full accent-[#c24424]" />
-                  </label>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn 90 degrees left" className="grid h-9 w-9 place-items-center rounded-full border border-line hover:border-moss"><RotateCcw className="h-4 w-4" /></button>
-                    <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn 90 degrees right" className="grid h-9 w-9 place-items-center rounded-full border border-line hover:border-moss"><RotateCw className="h-4 w-4" /></button>
-                    <span className="self-center text-[11px] text-ink-soft">90° turns</span>
-                  </div>
-
-                  <p className="mt-3 text-xs font-semibold">Snap to</p>
-                  <div className="mt-1.5 flex flex-wrap gap-2">
-                    {([["back", "Back wall"], ["left", "Left wall"], ["right", "Right wall"], ["centre", "Centre"]] as const).map(([w, l]) => (
-                      <button key={w} onClick={() => snapTo(selected.id, w)} className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold hover:border-moss">{l}</button>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {([["back", "Back wall"], ["left", "Left"], ["right", "Right"], ["centre", "Centre"]] as const).map(([w, l]) => (
+                      <button key={w} onClick={() => snapTo(selected.id, w)} className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss">{l}</button>
                     ))}
+                    <span className="mx-0.5 w-px self-stretch bg-line" aria-hidden />
+                    <button onClick={() => duplicate(selected.id)} className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss"><Copy className="h-3 w-3" /> Copy</button>
+                    <button onClick={() => remove(selected.id)} className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-coral-deep hover:border-coral"><Trash2 className="h-3 w-3" /> Remove</button>
                   </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                    <button onClick={() => duplicate(selected.id)} className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold hover:border-moss"><Copy className="h-3.5 w-3.5" /> Copy</button>
-                    <button onClick={() => remove(selected.id)} className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-coral-deep hover:border-coral"><Trash2 className="h-3.5 w-3.5" /> Remove</button>
-                    <button onClick={() => setSelectedId(null)} className="ml-auto rounded-full bg-forest px-4 py-1.5 text-xs font-semibold text-white">Done</button>
-                  </div>
-                  <p className="mt-2 text-[11px] text-ink-soft">Keyboard: arrows nudge, R turns, Delete removes, Esc deselects.</p>
                 </m.div>
               )}
             </AnimatePresence>
 
-            <div className="flex gap-2" role="tablist" aria-label="Room Studio panels">
+            <div className="flex gap-2 lg:shrink-0" role="tablist" aria-label="Room Studio panels">
               {([["furniture", "Furniture"], ["check", `Room check${items.length ? ` (${items.length})` : ""}`]] as [Tab, string][]).map(([id, label]) => (
-                <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${tab === id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{label}</button>
+                <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{label}</button>
               ))}
             </div>
 
-            {tab === "furniture" ? (
-              <div className="mt-3">
-                <div className="flex items-center justify-between gap-2 text-xs text-ink-soft">
-                  <span>{sorted.length} pieces, sized for your {Wn} x {Dn} ft hall</span>
-                  <select value={sort} onChange={(e) => setSort(e.target.value as "match" | "catalog")} aria-label="Sort furniture" className="rounded-full border border-line bg-paper px-3 py-1.5 font-semibold text-ink">
-                    <option value="match">Best match first</option>
-                    <option value="catalog">Shop order</option>
-                  </select>
+            <div className="mt-3 lg:mt-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+              {tab === "furniture" ? (
+                <div>
+                  <div className="flex items-center justify-between gap-2 text-xs text-ink-soft">
+                    <span>{sorted.length} pieces for your {Wn} x {Dn} ft room</span>
+                    <select value={sort} onChange={(e) => setSort(e.target.value as "match" | "catalog")} aria-label="Sort furniture" className="rounded-full border border-line bg-paper px-3 py-1.5 font-semibold text-ink">
+                      <option value="match">Best match first</option>
+                      <option value="catalog">Shop order</option>
+                    </select>
+                  </div>
+                  {items.length > 0 && (
+                    <div className="mt-2 rounded-2xl border border-line bg-paper p-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-moss">In your room ({items.length}). Tap one to arrange it</p>
+                      <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                        {items.map((it, i) => {
+                          const p = productById.get(it.pid);
+                          if (!p) return null;
+                          return (
+                            <li key={it.id}>
+                              <button onClick={() => setSelectedId(it.id)} aria-pressed={selectedId === it.id} className={`flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-xs font-semibold transition ${selectedId === it.id ? "border-forest bg-forest text-white" : problems[it.id] ? "border-coral bg-coral/10 text-coral-deep" : "border-line hover:border-moss"}`}>
+                                <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${selectedId === it.id ? "bg-white text-forest" : "bg-mint text-forest"}`}>{i + 1}</span>
+                                <span className="max-w-[8rem] truncate">{p.name}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                  <ul className="mt-2 space-y-2">
+                    {sorted.map(({ p, dims, fit, color }, i) => (
+                      <li key={p.id}>
+                        <button onClick={() => place(p)} className="group flex w-full gap-3 rounded-2xl border border-line bg-paper p-2 text-left transition hover:border-moss hover:shadow-md">
+                          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-sand"><ProductArt kind={p.art} tint={p.tint} className="h-12 w-12" /></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1.5 truncate text-sm font-semibold">{p.name}{sort === "match" && i < 3 && fit.status !== "Too big" && <span className="rounded-full bg-coral px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Top pick</span>}</p>
+                            <p className="text-xs text-ink-soft">{dims.w} x {dims.d} ft &middot; from {inr(monthlyRent(p, 12))}/mo</p>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                              <span className={`rounded-full px-2 py-0.5 ${fit.status === "Fits well" ? "bg-mint text-forest" : fit.status === "Tight fit" ? "bg-sun/25 text-[#7a5200]" : "bg-coral/15 text-coral-deep"}`}>{fit.status}</span>
+                              <span className={`rounded-full px-2 py-0.5 ${color.label === "Great match" ? "bg-mint text-forest" : color.label === "Good match" ? "bg-sand text-ink" : "bg-coral/15 text-coral-deep"}`}>{color.score}/100 colour</span>
+                            </p>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                {items.length > 0 && (
-                  <div className="mt-3 rounded-2xl border border-line bg-paper p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">In your hall ({items.length}). Tap one to arrange it</p>
-                    <ul className="mt-2 flex flex-wrap gap-1.5">
-                      {items.map((it, i) => {
-                        const p = productById.get(it.pid);
-                        if (!p) return null;
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-3xl border border-line bg-paper p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Floor space used</p>
+                    <div className="mt-2 flex items-end justify-between"><p className="font-display text-3xl font-semibold text-forest">{cov.percent}%</p><p className={`text-sm font-semibold ${cov.verdict === "Too crowded" ? "text-coral-deep" : "text-forest"}`}>{cov.verdict}</p></div>
+                    <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-sand"><div className={`h-full rounded-full transition-all ${cov.percent >= 55 ? "bg-coral" : cov.percent >= 40 ? "bg-sun" : "bg-moss"}`} style={{ width: `${Math.min(100, cov.percent)}%` }} /></div>
+                    <p className="mt-2 text-xs text-ink-soft">Rooms feel best with 25 to 40% of the floor covered, so people can walk around.</p>
+                  </div>
+
+                  <div className="rounded-3xl border border-line bg-paper p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">What we read from your photo</p>
+                    <div className="mt-2 flex gap-3">
+                      {([["Floor", colors.floor], ["Walls", colors.wall]] as [string, RGB][]).map(([label, c]) => (
+                        <div key={label} className="flex items-center gap-2 text-sm"><span className="h-8 w-8 rounded-full border border-line" style={{ background: rgbToHex(c) }} aria-hidden /><span><span className="block font-semibold">{label}</span><span className="text-xs text-ink-soft">{colorName(c)}</span></span></div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {problemCount > 0 && <p className="flex items-start gap-2 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {problemCount} {problemCount === 1 ? "piece needs" : "pieces need"} attention: overlapping or outside the floor.</p>}
+
+                  {items.length === 0 ? (
+                    <p className="rounded-2xl bg-sand px-4 py-3 text-sm text-ink-soft">Place a few pieces to see how well each one suits your room.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {items.map((it) => {
+                        const s = scored.find((x) => x.p.id === it.pid);
+                        if (!s) return null;
                         return (
                           <li key={it.id}>
-                            <button onClick={() => setSelectedId(it.id)} aria-pressed={selectedId === it.id} className={`flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold transition ${selectedId === it.id ? "border-forest bg-forest text-white" : problems[it.id] ? "border-coral bg-coral/10 text-coral-deep" : "border-line hover:border-moss"}`}>
-                              <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${selectedId === it.id ? "bg-white text-forest" : "bg-mint text-forest"}`}>{i + 1}</span>
-                              <span className="max-w-[9rem] truncate">{p.name}</span>
+                            <button onClick={() => { setSelectedId(it.id); }} className={`w-full rounded-2xl border bg-paper p-3 text-left text-sm transition hover:border-moss ${selectedId === it.id ? "border-forest" : "border-line"}`}>
+                              <span className="flex items-center justify-between gap-2"><span className="truncate font-semibold">{s.p.name}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${s.color.label === "Great match" ? "bg-mint text-forest" : s.color.label === "Good match" ? "bg-sand text-ink" : "bg-coral/15 text-coral-deep"}`}>{s.color.label} {s.color.score}</span></span>
+                              <span className="mt-1 block text-xs text-ink-soft">{s.color.reason}</span>
+                              <span className="mt-0.5 block text-xs text-ink-soft">{s.fit.note}</span>
                             </button>
                           </li>
                         );
                       })}
                     </ul>
-                  </div>
-                )}
-                <ul className="mt-3 max-h-[34rem] space-y-2 overflow-y-auto pr-1">
-                  {sorted.map(({ p, dims, fit, color }, i) => (
-                    <li key={p.id}>
-                      <button onClick={() => place(p)} className="group flex w-full gap-3 rounded-2xl border border-line bg-paper p-2.5 text-left transition hover:border-moss hover:shadow-md">
-                        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-sand"><ProductArt kind={p.art} tint={p.tint} className="h-14 w-14" /></div>
-                        <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-semibold">{p.name}{sort === "match" && i < 3 && fit.status !== "Too big" && <span className="rounded-full bg-coral px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">Top pick</span>}</p>
-                          <p className="text-xs text-ink-soft">{dims.w} x {dims.d} ft &middot; from {inr(monthlyRent(p, 12))}/mo</p>
-                          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                            <span className={`rounded-full px-2 py-0.5 ${fit.status === "Fits well" ? "bg-mint text-forest" : fit.status === "Tight fit" ? "bg-sun/25 text-[#7a5200]" : "bg-coral/15 text-coral-deep"}`}>{fit.status}</span>
-                            <span className={`rounded-full px-2 py-0.5 ${color.label === "Great match" ? "bg-mint text-forest" : color.label === "Good match" ? "bg-sand text-ink" : "bg-coral/15 text-coral-deep"}`}>{color.score}/100 colour</span>
-                          </p>
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                <div className="rounded-3xl border border-line bg-paper p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">Floor space used</p>
-                  <div className="mt-2 flex items-end justify-between"><p className="font-display text-3xl font-semibold text-forest">{cov.percent}%</p><p className={`text-sm font-semibold ${cov.verdict === "Too crowded" ? "text-coral-deep" : "text-forest"}`}>{cov.verdict}</p></div>
-                  <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-sand"><div className={`h-full rounded-full transition-all ${cov.percent >= 55 ? "bg-coral" : cov.percent >= 40 ? "bg-sun" : "bg-moss"}`} style={{ width: `${Math.min(100, cov.percent)}%` }} /></div>
-                  <p className="mt-2 text-xs text-ink-soft">Rooms feel best with 25 to 40% of the floor covered, so people can walk around.</p>
-                </div>
+                  )}
 
-                <div className="rounded-3xl border border-line bg-paper p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-moss">What we read from your photo</p>
-                  <div className="mt-2 flex gap-3">
-                    {([["Floor", colors.floor], ["Walls", colors.wall]] as [string, RGB][]).map(([label, c]) => (
-                      <div key={label} className="flex items-center gap-2 text-sm"><span className="h-8 w-8 rounded-full border border-line" style={{ background: rgbToHex(c) }} aria-hidden /><span><span className="block font-semibold">{label}</span><span className="text-xs text-ink-soft">{colorName(c)}</span></span></div>
-                    ))}
+                  {suggestions.length > 0 && (
+                    <div className="rounded-3xl border border-line bg-paper p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-moss">Would also suit your room</p>
+                      <ul className="mt-2 space-y-2">
+                        {suggestions.map((s) => (
+                          <li key={s.p.id} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="min-w-0"><span className="block truncate font-semibold">{s.p.name}</span><span className="text-xs text-ink-soft">{s.color.score}/100 colour. {s.fit.status}.</span></span>
+                            <button onClick={() => place(s.p)} className="shrink-0 rounded-full border border-forest px-3 py-1.5 text-xs font-semibold text-forest hover:bg-forest hover:text-white">Place</button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="rounded-3xl bg-forest p-4 text-white">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-sun">Rent this room</p>
+                      <select value={plan} onChange={(e) => setPlan(Number(e.target.value) as TenureMonths)} aria-label="Rental plan" className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white outline-none">
+                        {tenures.map((t) => <option key={t.months} value={t.months} className="text-ink">{t.label}</option>)}
+                      </select>
+                    </div>
+                    <p className="font-display mt-2 text-3xl font-semibold">{inr(totals.rent)}<span className="text-sm font-medium text-white/70"> /month</span></p>
+                    <p className="text-xs text-white/70">{items.length} {items.length === 1 ? "item" : "items"}. Refundable deposit {inr(totals.deposit)}. Free delivery.</p>
+                    <button onClick={addAllToCart} disabled={!items.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white transition hover:bg-coral-deep disabled:opacity-40"><ShoppingBag className="h-4 w-4" /> Add all to cart</button>
                   </div>
                 </div>
-
-                {problemCount > 0 && <p className="flex items-start gap-2 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {problemCount} {problemCount === 1 ? "piece needs" : "pieces need"} attention: overlapping or outside the floor.</p>}
-
-                {items.length === 0 ? (
-                  <p className="rounded-2xl bg-sand px-4 py-3 text-sm text-ink-soft">Place a few pieces to see how well each one suits your hall.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {items.map((it) => {
-                      const s = scored.find((x) => x.p.id === it.pid);
-                      if (!s) return null;
-                      return (
-                        <li key={it.id}>
-                          <button onClick={() => { setSelectedId(it.id); }} className={`w-full rounded-2xl border bg-paper p-3 text-left text-sm transition hover:border-moss ${selectedId === it.id ? "border-forest" : "border-line"}`}>
-                            <span className="flex items-center justify-between gap-2"><span className="truncate font-semibold">{s.p.name}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${s.color.label === "Great match" ? "bg-mint text-forest" : s.color.label === "Good match" ? "bg-sand text-ink" : "bg-coral/15 text-coral-deep"}`}>{s.color.label} {s.color.score}</span></span>
-                            <span className="mt-1 block text-xs text-ink-soft">{s.color.reason}</span>
-                            <span className="mt-0.5 block text-xs text-ink-soft">{s.fit.note}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {suggestions.length > 0 && (
-                  <div className="rounded-3xl border border-line bg-paper p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Would also suit your hall</p>
-                    <ul className="mt-2 space-y-2">
-                      {suggestions.map((s) => (
-                        <li key={s.p.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="min-w-0"><span className="block truncate font-semibold">{s.p.name}</span><span className="text-xs text-ink-soft">{s.color.score}/100 colour. {s.fit.status}.</span></span>
-                          <button onClick={() => place(s.p)} className="shrink-0 rounded-full border border-forest px-3 py-1.5 text-xs font-semibold text-forest hover:bg-forest hover:text-white">Place</button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="rounded-3xl bg-forest p-4 text-white">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-sun">Rent this room</p>
-                    <select value={plan} onChange={(e) => setPlan(Number(e.target.value) as TenureMonths)} aria-label="Rental plan" className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white outline-none">
-                      {tenures.map((t) => <option key={t.months} value={t.months} className="text-ink">{t.label}</option>)}
-                    </select>
-                  </div>
-                  <p className="font-display mt-2 text-3xl font-semibold">{inr(totals.rent)}<span className="text-sm font-medium text-white/70"> /month</span></p>
-                  <p className="text-xs text-white/70">{items.length} {items.length === 1 ? "item" : "items"}. Refundable deposit {inr(totals.deposit)}. Free delivery.</p>
-                  <button onClick={addAllToCart} disabled={!items.length} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white transition hover:bg-coral-deep disabled:opacity-40"><ShoppingBag className="h-4 w-4" /> Add all to cart</button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </aside>
         </div>
       </div>
