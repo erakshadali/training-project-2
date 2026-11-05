@@ -1,5 +1,7 @@
 # RentEase
 
+**Live demo:** https://rentease-one-khaki.vercel.app
+
 A furniture and appliance rental platform: browse a catalog, pick a 3, 6 or 12 month plan, schedule delivery, and manage rentals.
 Built as a full stack project for the Unified Mentor internship.
 
