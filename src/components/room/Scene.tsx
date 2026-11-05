@@ -264,6 +264,12 @@ export function Scene(props: Props) {
         m.position.set(ox, 0.03, oz);
         l.outline.add(m);
       }
+      // An arrow on the front edge shows which way the piece faces.
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.6, 3), new THREE.MeshBasicMaterial({ color }));
+      arrow.rotation.x = Math.PI / 2;
+      arrow.scale.y = 0.6;
+      arrow.position.set(0, 0.05, d / 2 + 0.5);
+      l.outline.add(arrow);
       l.outline.position.set(sel.x, 0, sel.z);
       l.outline.rotation.y = sel.rot;
     }
