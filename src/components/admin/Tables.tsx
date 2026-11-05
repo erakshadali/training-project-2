@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Ban, Loader2, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Ban, Loader2, Pencil, Plus, Search, ShieldCheck } from "lucide-react";
 import type { Ctx } from "@/components/admin/AdminDashboard";
 import { Modal } from "@/components/Modal";
 import { ProductArt } from "@/components/ProductArt";
@@ -32,10 +32,45 @@ function Save({ busy, children }: { busy: boolean; children: React.ReactNode }) 
 
 const arts: ArtKind[] = ["bed", "sofa", "dining", "desk", "wardrobe", "chair", "shelf", "fridge", "washer", "tv", "ac", "microwave", "purifier"];
 
+type SortKey = "added" | "name" | "rentLow" | "rentHigh" | "stockLow" | "stockHigh" | "mostOut";
+const sortLabels: Record<SortKey, string> = {
+  added: "Order added",
+  name: "Name, A to Z",
+  rentLow: "Rent, low to high",
+  rentHigh: "Rent, high to low",
+  stockLow: "Stock, lowest first",
+  stockHigh: "Stock, highest first",
+  mostOut: "Most out on rent",
+};
+
 export function Inventory({ data, reload, notify }: Ctx) {
   const [edit, setEdit] = useState<AdminProduct | null>(null);
   const [adding, setAdding] = useState(false);
+  const [q, setQ] = useState("");
+  const [category, setCategory] = useState<"all" | "furniture" | "appliances">("all");
+  const [show, setShow] = useState<"all" | "visible" | "hidden" | "low">("all");
+  const [sort, setSort] = useState<SortKey>("added");
   const out = new Map(data.stats.byProduct.map((p) => [p.pid, p]));
+
+  const rows = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    const unitsOut = (id: string) => data.stats.byProduct.find((p) => p.pid === id)?.unitsOut ?? 0;
+    const list = data.products.filter((p) =>
+      (category === "all" || p.category === category) &&
+      (show === "all" || (show === "visible" && p.active) || (show === "hidden" && !p.active) || (show === "low" && p.stock <= 3)) &&
+      (!term || `${p.name} ${p.subcategory}`.toLowerCase().includes(term)),
+    );
+    const by: Record<SortKey, (a: AdminProduct, b: AdminProduct) => number> = {
+      added: () => 0,
+      name: (a, b) => a.name.localeCompare(b.name),
+      rentLow: (a, b) => a.rent - b.rent,
+      rentHigh: (a, b) => b.rent - a.rent,
+      stockLow: (a, b) => a.stock - b.stock,
+      stockHigh: (a, b) => b.stock - a.stock,
+      mostOut: (a, b) => unitsOut(b.id) - unitsOut(a.id),
+    };
+    return [...list].sort(by[sort]);
+  }, [data.products, data.stats.byProduct, q, category, show, sort]);
 
   async function toggle(p: AdminProduct) {
     const { ok, data: d } = await adminApi(`/api/admin/products/${p.id}`, "PATCH", { active: !p.active });
@@ -49,13 +84,36 @@ export function Inventory({ data, reload, notify }: Ctx) {
         <p className="text-sm text-ink-soft">Price changes apply to new orders only. Running rentals keep the rent they started with.</p>
         <button onClick={() => setAdding(true)} className="flex items-center gap-1.5 rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-coral"><Plus className="h-4 w-4" /> Add product</button>
       </div>
-      <div className="mt-4 overflow-x-auto rounded-3xl border border-line bg-paper">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <label className="relative min-w-0 flex-1 sm:max-w-xs">
+          <span className="sr-only">Search products</span>
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products" className="w-full rounded-full border border-line bg-paper py-2.5 pl-10 pr-4 text-sm outline-none focus:border-moss" />
+        </label>
+        <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} aria-label="Category" className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold">
+          <option value="all">All categories</option>
+          <option value="furniture">Furniture</option>
+          <option value="appliances">Appliances</option>
+        </select>
+        <select value={show} onChange={(e) => setShow(e.target.value as typeof show)} aria-label="Show" className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold">
+          <option value="all">All products</option>
+          <option value="visible">Visible in shop</option>
+          <option value="hidden">Hidden</option>
+          <option value="low">Low stock (3 or fewer)</option>
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort products" className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold">
+          {(Object.keys(sortLabels) as SortKey[]).map((k) => <option key={k} value={k}>Sort: {sortLabels[k]}</option>)}
+        </select>
+        <span className="text-xs text-ink-soft">{rows.length} of {data.products.length} products</span>
+      </div>
+      <div className="mt-3 overflow-x-auto rounded-3xl border border-line bg-paper">
         <table className="w-full min-w-[44rem] text-left text-sm">
           <thead className="border-b border-line bg-sand/60 text-xs uppercase tracking-wide text-ink-soft">
             <tr><th className="px-4 py-3">Product</th><th className="px-4 py-3">Rent / mo</th><th className="px-4 py-3">Deposit</th><th className="px-4 py-3">On shelf</th><th className="px-4 py-3">Out on rent</th><th className="px-4 py-3">Shop</th><th className="px-4 py-3" /></tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {data.products.map((p) => (
+            {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-soft">No products match these filters.</td></tr>}
+            {rows.map((p) => (
               <tr key={p.id} className={p.active ? "" : "opacity-55"}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">

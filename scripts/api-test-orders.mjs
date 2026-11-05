@@ -97,6 +97,8 @@ const statuses = (o) => o.timeline.map((t) => t.status).join(">");
   check("dispatch moves to Out for delivery with the delivery person", r.status === 200 && r.data.order.status === "Out for delivery" && r.data.order.partner?.name === "Ravi Kumar");
   let mine = await myOrder(A.id);
   check("customer sees the live status and delivery person", mine.status === "Out for delivery" && mine.partner?.phone === "9876543210" && statuses(mine) === "Placed>Confirmed>Confirmed>Packed>Out for delivery");
+  r = await cust.call(`/api/rentals/${rentalsA[0].id}/cancel`, "POST");
+  check("customer cannot cancel an item once the order is out for delivery (409)", r.status === 409, String(r.status));
   check("cannot reschedule once out for delivery (409)", (await act(A.id, { action: "reschedule", deliveryDate: plus(12), slot: "9 AM to 12 PM" })).status === 409);
 
   // ---- delivery from the Schedule board, item by item

@@ -11,6 +11,15 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   await connectDb();
 
+  // Once an order is packed or on its way, the team has already prepared it, so items can no longer be cancelled here.
+  const owned = await RentalModel.findOne({ rentalId: id, userId: user.id }, { orderId: 1 }).lean();
+  if (owned) {
+    const order = await OrderModel.findOne({ orderId: owned.orderId }, { status: 1 }).lean();
+    if (order && (order.status === "Packed" || order.status === "Out for delivery")) {
+      return fail("This order is already packed or on its way, so items can no longer be cancelled here. Please contact support.", 409);
+    }
+  }
+
   // The status filter makes this atomic, so a double click cannot restore stock twice.
   const rental = await RentalModel.findOneAndUpdate(
     { rentalId: id, userId: user.id, status: "Scheduled", startDate: { $gte: addDaysISO(todayISO(), 1) } },
