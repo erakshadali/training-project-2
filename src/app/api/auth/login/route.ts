@@ -13,7 +13,11 @@ export async function POST(req: Request) {
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   const email = parsed.data.email.toLowerCase();
-  if (throttled(`login:${ip}:${email}`, 8)) return fail("Too many attempts. Please wait a minute.", 429);
+  // Limits per account (whoever is guessing) and per address, so spreading guesses over many IPs or many emails both get slowed.
+  const FIFTEEN_MIN = 15 * 60_000;
+  if (throttled(`login-email:${email}`, 10, FIFTEEN_MIN) || throttled(`login-ip:${ip}`, 40, FIFTEEN_MIN)) {
+    return fail("Too many attempts. Please wait a few minutes and try again.", 429);
+  }
 
   await connectDb();
   const user = await UserModel.findOne({ email });
