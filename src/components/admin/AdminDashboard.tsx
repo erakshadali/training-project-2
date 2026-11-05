@@ -2,20 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
-import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, MapPin, Package, ShieldAlert, Users, Wrench } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, KeyRound, MapPin, Package, ShieldAlert, Users, Wrench } from "lucide-react";
 import { Orders } from "@/components/admin/Orders";
 import { Overview } from "@/components/admin/Overview";
+import { Rentals } from "@/components/admin/Rentals";
 import { Schedule } from "@/components/admin/Schedule";
 import { Areas, Claims, Customers, Inventory, Repairs } from "@/components/admin/Tables";
 import { adminApi, type AdminData } from "@/lib/adminTypes";
 
-export type TabId = "overview" | "orders" | "schedule" | "inventory" | "repairs" | "claims" | "customers" | "areas";
+export type TabId = "overview" | "orders" | "rentals" | "schedule" | "inventory" | "repairs" | "claims" | "customers" | "areas";
 
-export type Ctx = { data: AdminData; reload: () => Promise<void>; notify: (m: string) => void; go: (t: TabId) => void };
+export type Ctx = { data: AdminData; reload: () => Promise<void>; notify: (m: string) => void; go: (t: TabId, filter?: string) => void; preset?: string };
 
 const tabs: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "rentals", label: "Rentals", icon: KeyRound },
   { id: "schedule", label: "Schedule", icon: CalendarClock },
   { id: "inventory", label: "Inventory", icon: Package },
   { id: "repairs", label: "Repairs", icon: Wrench },
@@ -29,6 +31,7 @@ export function AdminDashboard() {
   const [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [preset, setPreset] = useState<string | undefined>();
 
   const reload = useCallback(async () => {
     try {
@@ -96,7 +99,7 @@ export function AdminDashboard() {
         {tabs.map((t) => {
           const n = badge(t.id);
           return (
-            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition ${tab === t.id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => { setPreset(undefined); setTab(t.id); }} className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition ${tab === t.id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>
               <t.icon className="h-4 w-4" /> {t.label}
               {n > 0 && <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ${tab === t.id ? "bg-white text-forest" : "bg-coral text-white"}`}>{n}</span>}
             </button>
@@ -112,10 +115,11 @@ export function AdminDashboard() {
         ) : (
           <m.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
             {(() => {
-              const ctx: Ctx = { data, reload, notify, go: setTab };
+              const ctx: Ctx = { data, reload, notify, preset, go: (t, f) => { setPreset(f); setTab(t); } };
               switch (tab) {
                 case "overview": return <Overview {...ctx} />;
                 case "orders": return <Orders {...ctx} />;
+                case "rentals": return <Rentals {...ctx} />;
                 case "schedule": return <Schedule {...ctx} />;
                 case "inventory": return <Inventory {...ctx} />;
                 case "repairs": return <Repairs {...ctx} />;

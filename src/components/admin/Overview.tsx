@@ -10,13 +10,13 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 export function Overview({ data, go }: Ctx) {
   const k = data.stats.kpis;
   const hours = k.avgResolutionHours;
-  const cards = [
-    { label: "Active rentals", value: String(k.activeRentals), sub: `${k.awaitingDelivery} waiting for delivery` },
-    { label: "Monthly recurring revenue", value: inr(k.mrr), sub: `${inr(k.depositHeld)} deposits held` },
-    { label: "Product utilization", value: pct(k.utilization), sub: "units out vs. all units owned" },
-    { label: "Repeat customers", value: pct(k.repeatRate), sub: `${k.buyers} ${k.buyers === 1 ? "customer has" : "customers have"} ordered` },
-    { label: "Repair resolution time", value: hours === null ? "No data" : hours < 1 ? `${Math.max(1, Math.round(hours * 60))} min` : `${hours.toFixed(1)} hrs`, sub: `${k.resolvedRepairs} resolved, ${k.openRepairs} open` },
-    { label: "Orders", value: String(k.totalOrders), sub: `${k.customers} registered customers` },
+  const cards: { label: string; value: string; sub: string; tab: TabId; filter?: string }[] = [
+    { label: "Active rentals", value: String(k.activeRentals), sub: `${k.awaitingDelivery} waiting for delivery`, tab: "rentals", filter: "Active rentals" },
+    { label: "Monthly recurring revenue", value: inr(k.mrr), sub: `${inr(k.depositHeld)} deposits held`, tab: "rentals", filter: "Active rentals" },
+    { label: "Product utilization", value: pct(k.utilization), sub: "units out vs. all units owned", tab: "inventory" },
+    { label: "Repeat customers", value: pct(k.repeatRate), sub: `${k.buyers} ${k.buyers === 1 ? "customer has" : "customers have"} ordered`, tab: "customers" },
+    { label: "Repair resolution time", value: hours === null ? "No data" : hours < 1 ? `${Math.max(1, Math.round(hours * 60))} min` : `${hours.toFixed(1)} hrs`, sub: `${k.resolvedRepairs} resolved, ${k.openRepairs} open`, tab: "repairs" },
+    { label: "Orders", value: String(k.totalOrders), sub: `${k.customers} registered customers`, tab: "orders" },
   ];
 
   const items: { text: string; n: number; tab: TabId }[] = [
@@ -37,11 +37,12 @@ export function Overview({ data, go }: Ctx) {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c, i) => (
-          <m.div key={c.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-3xl border border-line bg-paper p-5">
+          <m.button key={c.label} type="button" onClick={() => go(c.tab, c.filter)} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="group rounded-3xl border border-line bg-paper p-5 text-left transition hover:border-moss hover:shadow-md" aria-label={`${c.label}: ${c.value}. Open details`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-moss">{c.label}</p>
             <p className="font-display mt-2 text-3xl font-semibold text-forest">{c.value}</p>
             <p className="mt-1 text-xs text-ink-soft">{c.sub}</p>
-          </m.div>
+            <p className="mt-3 flex items-center gap-1 text-xs font-semibold text-moss opacity-70 transition group-hover:opacity-100">View details <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" /></p>
+          </m.button>
         ))}
       </div>
 
