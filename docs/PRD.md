@@ -103,7 +103,7 @@ Challenges faced by renters today:
 | R4 | Check the layout: floor space used, size fit per piece, colour match against the room, overlap and out-of-room warnings | Done |
 | R5 | Suggest suitable products and furnish the room automatically | Done |
 | R6 | Download the result as a picture and add the whole layout to the cart | Done |
-| R7 | Save layouts to the customer account | Planned |
+| R7 | Save layouts to the customer account (up to 5), reopen and update them | Done |
 
 Why it matters: the biggest doubt when renting furniture is "will it fit and look right in my place?". Room Studio answers
 that before the customer commits, which should reduce returns and early closures.

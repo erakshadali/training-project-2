@@ -109,6 +109,8 @@ Customer routes need a session cookie. `/api/admin/*` routes return 401 when log
 | DELETE | `/api/rentals/[id]/return` | Cancels a scheduled pickup |
 | POST | `/api/rentals/[id]/cancel` | Until the day before delivery. Restores stock |
 | GET, POST | `/api/maintenance` | Raise or list repair requests |
+| GET, POST | `/api/layouts` | List or save Room Studio layouts. Login required, 5 per customer |
+| GET, PUT, DELETE | `/api/layouts/[id]` | Open, update or delete one of the customer's own layouts |
 | GET | `/api/claims` | Own damage claims |
 | POST | `/api/claims/[id]/dispute` | `{ message }`. Only while the claim is "Charged" |
 
@@ -150,6 +152,8 @@ How the camera is recovered: with the floor corners at known positions on the fl
 scale. The rotation is orthonormalised, the floor normal gives "up", and the result is converted to Three.js conventions.
 The unit tests project known 3D points with an independent ground-truth camera and check the recovered camera lands within half
 a pixel, and that its position and height are recovered.
+
+Saved layouts: the customer's photo is shrunk in the browser to at most 1280 px (about 100 to 300 KB as a JPEG), and stored with the floor corners, room size, camera angle and furniture positions in the `RoomLayout` collection, plus a small preview picture. The built-in sample hall stores no photo. The server checks every field with Zod (JPEG data URLs only, size caps, at most 30 pieces), limits each customer to 5 layouts, and every route only reads or changes layouts that belong to the signed-in customer. A customer who is not logged in is sent to log in from the Save panel; the room they were building is held in session storage and restored when they return.
 
 Honest limits: the camera angle is assumed (65 degrees by default, adjustable with the photo-angle slider), lens distortion is
 ignored, and the 3D models are simple shapes, not photographs of the real product. Scale is only as accurate as the room size the

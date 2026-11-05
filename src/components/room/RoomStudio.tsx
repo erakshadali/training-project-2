@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { Save } from "lucide-react";
 import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Wand2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import dynamic from "next/dynamic";
@@ -59,6 +63,47 @@ function readColorsFromPhoto(photo: Photo, quad: Pt[]): Promise<{ floor: RGB; wa
 
 const newId = () => `it-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
+/** Everything needed to rebuild a room. Used for saved layouts and for keeping work through a login. */
+type Snapshot = {
+  photoUrl: string; imgW: number; imgH: number; quad: Pt[]; W: number; D: number; hfov: number; isSample: boolean;
+  items: { pid: string; x: number; z: number; rot: number }[];
+};
+type SavedSummary = { id: string; name: string; itemCount: number; W: number; D: number; thumb: string; isSample: boolean; updatedAt: string };
+
+const DRAFT_KEY = "rentease-room-draft";
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+/** Shrink the photo so a saved layout stays a few hundred KB. Returns the scale used. */
+async function shrinkPhoto(url: string, w: number, h: number, maxSide = 1280): Promise<{ url: string; w: number; h: number; k: number }> {
+  const k = Math.min(1, maxSide / Math.max(w, h));
+  const img = await loadImage(url);
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * k);
+  c.height = Math.round(h * k);
+  c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+  return { url: c.toDataURL("image/jpeg", 0.72), w: c.width, h: c.height, k };
+}
+
+async function makeThumb(blob: Blob): Promise<string> {
+  const bmp = await createImageBitmap(blob);
+  const c = document.createElement("canvas");
+  c.width = 320;
+  c.height = Math.round((320 * bmp.height) / bmp.width);
+  c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  let out = c.toDataURL("image/jpeg", 0.6);
+  if (out.length > 38_000) out = c.toDataURL("image/jpeg", 0.35);
+  return out.length > 38_000 ? "" : out;
+}
+
 export function RoomStudio() {
   const { products } = useCatalog();
   const { add, lines: cartLines, setQty, setMonths } = useCart();
@@ -84,6 +129,15 @@ export function RoomStudio() {
   const [lightAngle, setLightAngle] = useState(215);
   const [toast, setToast] = useState("");
   const [step, setStep] = useState<0.25 | 1>(1);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [saved, setSaved] = useState<SavedSummary[]>([]);
+  const [savedMax, setSavedMax] = useState(5);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("My hall");
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const sceneRef = useRef<SceneHandle>(null);
 
   const Wn = Math.max(0, Number(W) || 0), Dn = Math.max(0, Number(D) || 0);
@@ -106,6 +160,8 @@ export function RoomStudio() {
       setPhoto(p);
       setQuad([{ x: p.w * 0.3, y: p.h * 0.56 }, { x: p.w * 0.7, y: p.h * 0.56 }, { x: p.w * 0.92, y: p.h * 0.9 }, { x: p.w * 0.08, y: p.h * 0.9 }]);
       setIsSample(false);
+      setSavedId(null);
+      setSaveName("My hall");
       setHfov(65);
       setStage("floor");
     } catch {
@@ -123,6 +179,8 @@ export function RoomStudio() {
     setD(String(s.D));
     setHfov(s.hfov);
     setIsSample(true);
+    setSavedId(null);
+    setSaveName("My hall");
     setError("");
     setStage("floor");
   }
@@ -144,6 +202,127 @@ export function RoomStudio() {
     setTab("furniture");
     setBusy(false);
     setStage("studio");
+  }
+
+  /* ------------------------- saved layouts and drafts ------------------------ */
+
+  const refreshSaved = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/layouts");
+      if (!res.ok) return;
+      const data = await res.json();
+      setSaved(data.layouts);
+      setSavedMax(data.max);
+    } catch { /* the list is a convenience, so a failure just leaves it empty */ }
+  }, [user]);
+
+  useEffect(() => {
+    if (stage === "start") void Promise.resolve().then(refreshSaved);
+  }, [stage, refreshSaved]);
+
+  /** Rebuild the room from a snapshot and open the studio. */
+  const enterStudio = useCallback(async (s: Snapshot, id: string | null, name: string) => {
+    const url = s.isSample || !s.photoUrl ? makeSampleRoom().url : s.photoUrl;
+    const ph: Photo = { url, w: s.imgW, h: s.imgH };
+    const nextCal = calibrateFloor(s.quad, s.W, s.D, s.imgW, s.imgH, s.hfov);
+    if (!nextCal) throw new Error("This layout's floor could not be rebuilt.");
+    const ids = new Set(products.map((p) => p.id));
+    setPhoto(ph);
+    setQuad(s.quad);
+    setW(String(s.W));
+    setD(String(s.D));
+    setHfov(s.hfov);
+    setIsSample(s.isSample);
+    setColors(await readColorsFromPhoto(ph, s.quad));
+    setCal(nextCal);
+    setItems(s.items.filter((i) => ids.has(i.pid)).map((i) => ({ id: newId(), ...i })));
+    setSelectedId(null);
+    setTab("furniture");
+    setSavedId(id);
+    setSaveName(name);
+    setStage("studio");
+  }, [products]);
+
+  // After logging in from the save panel, bring back the room the customer was working on.
+  useEffect(() => {
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(DRAFT_KEY); } catch { /* storage may be blocked */ }
+    if (!raw || !products.length) return;
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    try {
+      const draft = JSON.parse(raw) as Snapshot;
+      void Promise.resolve().then(() => enterStudio(draft, null, "My hall")).then(() => say("Welcome back. Your room is restored. Press Save layout to keep it."));
+    } catch { /* a damaged draft is simply dropped */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once, when the catalogue is ready
+  }, [products.length]);
+
+  async function snapshot(): Promise<Snapshot> {
+    if (!photo) throw new Error("No photo");
+    const shrunk = isSample ? { url: "", w: photo.w, h: photo.h, k: 1 } : await shrinkPhoto(photo.url, photo.w, photo.h);
+    return {
+      photoUrl: shrunk.url, imgW: shrunk.w, imgH: shrunk.h,
+      quad: quad.map((p) => ({ x: Math.round(p.x * shrunk.k * 10) / 10, y: Math.round(p.y * shrunk.k * 10) / 10 })),
+      W: Wn, D: Dn, hfov, isSample,
+      items: items.map((i) => ({ pid: i.pid, x: Math.round(i.x * 100) / 100, z: Math.round(i.z * 100) / 100, rot: Math.round(i.rot * 1000) / 1000 })),
+    };
+  }
+
+  async function keepDraftAndLogin() {
+    try {
+      const s = await snapshot();
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(s));
+    } catch { /* if it cannot be kept, the customer still logs in, they just start over */ }
+    router.push("/login?next=/room-studio");
+  }
+
+  async function saveLayout(asNew: boolean) {
+    setSaveError("");
+    const name = saveName.trim();
+    if (!name) return setSaveError("Give the layout a name.");
+    setSaveBusy(true);
+    try {
+      const s = await snapshot();
+      const blob = await sceneRef.current?.exportPng();
+      const thumb = blob ? await makeThumb(blob) : "";
+      const update = !asNew && savedId;
+      const res = await fetch(update ? `/api/layouts/${savedId}` : "/api/layouts", {
+        method: update ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, items: s.items, quad: s.quad, W: s.W, D: s.D, hfov: s.hfov, imgW: s.imgW, imgH: s.imgH, isSample: s.isSample, photo: s.photoUrl, thumb }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setSaveError(data.error ?? "Could not save. Please try again.");
+      setSavedId(data.layout.id);
+      setSaveOpen(false);
+      say(update ? `Updated "${name}".` : `Saved "${name}". Find it on the Room Studio start page.`);
+    } catch {
+      setSaveError("Could not save. Check your connection and try again.");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function openSaved(id: string) {
+    setError("");
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/layouts/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const l = data.layout;
+      await enterStudio({ photoUrl: l.photo, imgW: l.imgW, imgH: l.imgH, quad: l.quad, W: l.W, D: l.D, hfov: l.hfov, isSample: l.isSample, items: l.items }, l.id, l.name);
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "Could not open that layout.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSaved(id: string) {
+    const res = await fetch(`/api/layouts/${id}`, { method: "DELETE" });
+    if (res.ok) setSaved((cur) => cur.filter((l) => l.id !== id));
+    else setError("Could not delete that layout.");
   }
 
   /* ----------------------------- step 3: studio ----------------------------- */
@@ -370,7 +549,7 @@ export function RoomStudio() {
 
   /* -------------------------------- render -------------------------------- */
 
-  if (stage === "start") return <Start busy={busy} error={error} onFile={onFile} onSample={useSample} />;
+  if (stage === "start") return <Start busy={busy} error={error} onFile={onFile} onSample={useSample} saved={saved} max={savedMax} loggedIn={!!user} onOpen={openSaved} onDelete={deleteSaved} />;
 
   if (stage === "floor" && photo) {
     return (
@@ -397,9 +576,31 @@ export function RoomStudio() {
           <button onClick={() => setStage("floor")} className="flex items-center gap-1.5 text-sm font-semibold text-moss hover:underline"><ArrowLeft className="h-4 w-4" /> Adjust the floor</button>
           <div className="flex flex-wrap gap-2">
             <button onClick={autoFurnish} className="flex items-center gap-1.5 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral-deep"><Wand2 className="h-4 w-4" /> Furnish it for me</button>
+            <button onClick={() => { setSaveOpen((o) => !o); setSaveError(""); }} aria-expanded={saveOpen} className="flex items-center gap-1.5 rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white"><Save className="h-4 w-4" /> Save layout</button>
             <button onClick={download} disabled={!items.length} className="flex items-center gap-1.5 rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white disabled:opacity-40"><Download className="h-4 w-4" /> Download picture</button>
           </div>
         </div>
+
+        {saveOpen && (
+          <div className="mt-4 rounded-3xl border-2 border-forest bg-paper p-4">
+            {!user ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="max-w-xl text-sm text-ink-soft">Log in to save this room to your account. We keep your photo and furniture so you can come back to it. Your work here is held for you while you log in.</p>
+                <button onClick={keepDraftAndLogin} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral">Log in to save</button>
+              </div>
+            ) : (
+              <form onSubmit={(e) => { e.preventDefault(); void saveLayout(false); }} className="flex flex-wrap items-end gap-3">
+                <label className="min-w-0 flex-1 text-sm font-semibold">Layout name
+                  <input value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={40} className="mt-1.5 w-full rounded-2xl border border-line bg-cream px-4 py-2.5 font-normal outline-none focus:border-moss" />
+                </label>
+                <button type="submit" disabled={saveBusy} className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral disabled:opacity-50">{saveBusy ? "Saving..." : savedId ? "Update saved layout" : "Save"}</button>
+                {savedId && <button type="button" disabled={saveBusy} onClick={() => void saveLayout(true)} className="rounded-full border border-forest px-5 py-2.5 text-sm font-semibold text-forest hover:bg-forest hover:text-white disabled:opacity-50">Save as new</button>}
+                <p className="w-full text-xs text-ink-soft">You can keep up to {savedMax} layouts. Your photo is saved to your account along with the furniture positions.</p>
+              </form>
+            )}
+            {saveError && <p role="alert" className="mt-3 rounded-2xl bg-coral/10 px-4 py-2.5 text-sm font-medium text-coral-deep">{saveError}</p>}
+          </div>
+        )}
 
         <AnimatePresence>
           {toast && <m.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="mt-4 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-semibold text-forest"><Check className="h-4 w-4" /> {toast}</m.p>}
@@ -643,8 +844,12 @@ export function RoomStudio() {
 
 /* ------------------------------- step 1 view ------------------------------- */
 
-function Start({ busy, error, onFile, onSample }: { busy: boolean; error: string; onFile: (f: File | undefined) => void; onSample: () => void }) {
+function Start({ busy, error, onFile, onSample, saved, max, loggedIn, onOpen, onDelete }: {
+  busy: boolean; error: string; onFile: (f: File | undefined) => void; onSample: () => void;
+  saved: SavedSummary[]; max: number; loggedIn: boolean; onOpen: (id: string) => void; onDelete: (id: string) => void;
+}) {
   const [over, setOver] = useState(false);
+  const [sure, setSure] = useState<string | null>(null);
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 text-center sm:px-6">
       <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">New: Room Studio</p>
@@ -666,6 +871,35 @@ function Start({ busy, error, onFile, onSample }: { busy: boolean; error: string
 
       <p className="mt-6 text-sm text-ink-soft">No photo handy?</p>
       <button onClick={onSample} className="mt-2 rounded-full border border-forest px-6 py-3 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white">Try it with a sample hall</button>
+
+      {loggedIn && saved.length > 0 && (
+        <section className="mt-10 text-left" aria-labelledby="saved-h">
+          <h2 id="saved-h" className="font-display text-2xl font-semibold">Your saved layouts <span className="text-base font-medium text-ink-soft">({saved.length} of {max})</span></h2>
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+            {saved.map((l) => (
+              <li key={l.id} className="overflow-hidden rounded-3xl border border-line bg-paper">
+                <div className="aspect-[3/2] bg-sand">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- small data URL preview */}
+                  {l.thumb && <img src={l.thumb} alt={`Preview of ${l.name}`} className="h-full w-full object-cover" />}
+                </div>
+                <div className="p-4">
+                  <p className="truncate font-semibold">{l.name}</p>
+                  <p className="text-xs text-ink-soft">{l.itemCount} {l.itemCount === 1 ? "piece" : "pieces"} &middot; {l.W} x {l.D} ft &middot; {new Date(l.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => onOpen(l.id)} disabled={busy} className="flex-1 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-coral disabled:opacity-50">{busy ? "Opening..." : "Open"}</button>
+                    {sure === l.id ? (
+                      <button onClick={() => { onDelete(l.id); setSure(null); }} className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white">Yes, delete</button>
+                    ) : (
+                      <button onClick={() => setSure(l.id)} aria-label={`Delete ${l.name}`} className="grid h-10 w-10 place-items-center rounded-full border border-line text-coral-deep hover:border-coral"><Trash2 className="h-4 w-4" /></button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {!loggedIn && <p className="mt-8 text-sm text-ink-soft"><Link href="/login?next=/room-studio" className="font-semibold text-forest underline">Log in</Link> to keep your rooms and come back to them later.</p>}
 
       <div className="mt-10 grid gap-3 text-left sm:grid-cols-3">
         {[

@@ -79,6 +79,8 @@ guarantee. Three.js loads only when the studio opens.
 | POST / DELETE | `/api/rentals/[id]/return` | Schedule, change or cancel a pickup |
 | POST | `/api/rentals/[id]/cancel` | Cancel before delivery |
 | GET / POST | `/api/maintenance` | List or raise repair requests |
+| GET / POST | `/api/layouts` | List or save Room Studio layouts (max 5 per customer) |
+| GET / PUT / DELETE | `/api/layouts/[id]` | Open, update or delete one saved layout |
 | GET | `/api/claims` | Your damage claims |
 | POST | `/api/claims/[id]/dispute` | Dispute a damage charge |
 | GET | `/api/admin/stats` | Admin: KPIs and per-product utilization |

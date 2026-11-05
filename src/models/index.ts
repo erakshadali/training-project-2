@@ -113,6 +113,21 @@ export interface MaintenanceDoc extends Stamped {
   resolvedAt?: Date | null;
 }
 
+export interface RoomLayoutDoc extends Stamped {
+  userId: Types.ObjectId;
+  name: string;
+  items: { pid: string; x: number; z: number; rot: number }[];
+  quad: { x: number; y: number }[];
+  W: number;
+  D: number;
+  hfov: number;
+  imgW: number;
+  imgH: number;
+  photo: string;
+  thumb: string;
+  isSample: boolean;
+}
+
 const productSchema = new Schema<ProductDoc>(
   {
     pid: { type: String, required: true, unique: true },
@@ -234,6 +249,24 @@ const claimSchema = new Schema<ClaimDoc>(
   { timestamps: true },
 );
 
+const roomLayoutSchema = new Schema<RoomLayoutDoc>(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    name: { type: String, required: true },
+    items: [{ _id: false, pid: String, x: Number, z: Number, rot: Number }],
+    quad: [{ _id: false, x: Number, y: Number }],
+    W: { type: Number, required: true },
+    D: { type: Number, required: true },
+    hfov: { type: Number, required: true },
+    imgW: { type: Number, required: true },
+    imgH: { type: Number, required: true },
+    photo: { type: String, default: "" },
+    thumb: { type: String, default: "" },
+    isSample: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
 const serviceAreaSchema = new Schema<ServiceAreaDoc>({
   name: { type: String, required: true, unique: true, trim: true },
   active: { type: Boolean, default: true },
@@ -248,5 +281,6 @@ export const UserModel = model<UserDoc>("User", userSchema);
 export const OrderModel = model<OrderDoc>("Order", orderSchema);
 export const RentalModel = model<RentalDoc>("Rental", rentalSchema);
 export const MaintenanceModel = model<MaintenanceDoc>("Maintenance", maintenanceSchema);
+export const RoomLayoutModel = model<RoomLayoutDoc>("RoomLayout", roomLayoutSchema);
 export const ClaimModel = model<ClaimDoc>("Claim", claimSchema);
 export const ServiceAreaModel = model<ServiceAreaDoc>("ServiceArea", serviceAreaSchema);
