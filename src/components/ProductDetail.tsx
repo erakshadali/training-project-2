@@ -8,16 +8,20 @@ import { ProductArt } from "@/components/ProductArt";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/context/CartContext";
 import { tenures, type TenureMonths } from "@/data/config";
-import { products, type Product } from "@/data/products";
+import type { Product } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { inr, monthlyRent } from "@/lib/pricing";
 
 export function ProductDetail({ product }: { product: Product }) {
   const { add, city } = useCart();
+  const { products } = useCatalog();
   const [months, setMonths] = useState<TenureMonths>(12);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
   const rent = monthlyRent(product, months);
+  const soldOut = product.stock <= 0;
+  const maxQty = Math.max(1, Math.min(10, product.stock));
   const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 3);
 
   function onAdd() {
@@ -89,17 +93,21 @@ export function ProductDetail({ product }: { product: Product }) {
               <div className="flex items-center rounded-full border border-line">
                 <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-12 w-12 place-items-center" aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
                 <span className="w-8 text-center font-semibold" aria-live="polite">{qty}</span>
-                <button onClick={() => setQty((q) => Math.min(10, q + 1))} className="grid h-12 w-12 place-items-center" aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                <button onClick={() => setQty((q) => Math.min(maxQty, q + 1))} className="grid h-12 w-12 place-items-center" aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
               </div>
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={onAdd}
-                className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-full px-6 font-semibold text-white transition ${added ? "bg-moss" : "bg-coral hover:bg-coral-deep"}`}
+                disabled={soldOut}
+                className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-full px-6 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-ink-soft/40 ${added ? "bg-moss" : "bg-coral hover:bg-coral-deep"}`}
               >
-                {added ? <><Check className="h-5 w-5" /> Added to cart</> : "Add to cart"}
+                {soldOut ? "Sold out" : added ? <><Check className="h-5 w-5" /> Added to cart</> : "Add to cart"}
               </motion.button>
             </div>
-            <p className="mt-3 text-center text-xs text-ink-soft">Delivering to {city}. Free delivery and installation.</p>
+            <p className="mt-3 text-center text-xs text-ink-soft">
+              {soldOut ? "Currently unavailable. Check back soon." : product.stock <= 5 ? <span className="font-semibold text-coral-deep">Only {product.stock} left. </span> : null}
+              {!soldOut && <>Delivering to {city}. Free delivery and installation.</>}
+            </p>
           </div>
 
           <ul className="mt-6 grid gap-3 sm:grid-cols-3">

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MapPin, Menu, ShoppingBag, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { cities, type City } from "@/data/config";
 
@@ -38,6 +39,8 @@ export function Logo({ light = false }: { light?: boolean }) {
 export function Header() {
   const { count, openDrawer, city, setCity } = useCart();
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
 
   return (
@@ -77,12 +80,32 @@ export function Header() {
             </select>
           </label>
 
-          <Link
-            href="/account"
-            className="hidden rounded-full px-3.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-sand sm:block"
-          >
-            My rentals
-          </Link>
+          {user ? (
+            <>
+              <Link href="/account" className="hidden rounded-full px-3.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-sand sm:block">
+                {user.name.split(" ")[0]}&apos;s rentals
+              </Link>
+              <button
+                onClick={async () => {
+                  await logout();
+                  router.push("/");
+                  router.refresh();
+                }}
+                className="hidden rounded-full px-3.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-sand sm:block"
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hidden rounded-full px-3.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-sand sm:block">
+                Log in
+              </Link>
+              <Link href="/register" className="hidden rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest transition hover:bg-forest hover:text-white sm:block">
+                Sign up
+              </Link>
+            </>
+          )}
 
           <button
             onClick={openDrawer}
@@ -130,9 +153,29 @@ export function Header() {
                   {l.label}
                 </Link>
               ))}
-              <Link href="/account" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-medium hover:bg-sand">
-                My rentals
-              </Link>
+              {user ? (
+                <>
+                  <Link href="/account" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-medium hover:bg-sand">
+                    My rentals
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      setOpen(false);
+                      await logout();
+                      router.push("/");
+                      router.refresh();
+                    }}
+                    className="rounded-xl px-3 py-3 text-left font-medium hover:bg-sand"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-medium hover:bg-sand">Log in</Link>
+                  <Link href="/register" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-medium hover:bg-sand">Sign up</Link>
+                </>
+              )}
               <label className="mt-1 flex items-center gap-2 px-3 py-2 text-sm">
                 <MapPin className="h-4 w-4 text-coral" aria-hidden /> Delivering to
                 <select

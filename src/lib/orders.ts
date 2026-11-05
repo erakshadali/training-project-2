@@ -1,7 +1,5 @@
 import type { TenureMonths } from "@/data/config";
 
-const ORDERS_KEY = "rentease.orders.v1";
-
 export type OrderLine = {
   productId: string;
   name: string;
@@ -10,6 +8,8 @@ export type OrderLine = {
   rentPerMonth: number;
   deposit: number;
 };
+
+export type OrderStatus = "Scheduled" | "Delivered" | "Closed" | "Cancelled";
 
 export type Order = {
   id: string;
@@ -26,22 +26,8 @@ export type Order = {
   lines: OrderLine[];
   rentPerMonth: number;
   deposit: number;
-  status: "Scheduled" | "Delivered" | "Closed";
+  status: OrderStatus;
 };
-
-export function loadOrders(): Order[] {
-  try {
-    const raw = window.localStorage.getItem(ORDERS_KEY);
-    return raw ? (JSON.parse(raw) as Order[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveOrder(order: Order) {
-  const all = loadOrders();
-  window.localStorage.setItem(ORDERS_KEY, JSON.stringify([order, ...all]));
-}
 
 export function newOrderId() {
   const t = Date.now().toString(36).toUpperCase();

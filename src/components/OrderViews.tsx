@@ -4,31 +4,60 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, CheckCircle2, MapPin, PackageOpen } from "lucide-react";
-import { loadOrders, type Order } from "@/lib/orders";
+import { useAuth } from "@/context/AuthContext";
+import type { Order } from "@/lib/orders";
 import { formatDate, inr } from "@/lib/pricing";
 
-function useOrders() {
-  const [orders, setOrders] = useState<Order[] | null>(null);
+type State<T> = { status: "loading" } | { status: "error"; message: string; code?: number } | { status: "ok"; data: T };
+
+function useApi<T>(url: string, pick: (json: never) => T): State<T> {
+  const [state, setState] = useState<State<T>>({ status: "loading" });
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- read localStorage after mount
-    setOrders(loadOrders());
-  }, []);
-  return orders;
+    let alive = true;
+    fetch(url)
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!alive) return;
+        if (!res.ok) setState({ status: "error", message: json.error ?? "Something went wrong.", code: res.status });
+        else setState({ status: "ok", data: pick(json as never) });
+      })
+      .catch(() => alive && setState({ status: "error", message: "Network problem. Please try again." }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pick is a stable inline selector
+  }, [url]);
+  return state;
+}
+
+function LoginPrompt({ next }: { next: string }) {
+  return (
+    <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
+      <h1 className="font-display text-3xl font-semibold">Log in to see your rentals</h1>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Link href={`/login?next=${next}`} className="rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">Log in</Link>
+        <Link href={`/register?next=${next}`} className="rounded-full border border-forest px-6 py-3 font-semibold text-forest hover:bg-forest hover:text-white">Create account</Link>
+      </div>
+    </div>
+  );
 }
 
 export function OrderConfirmation({ id }: { id: string }) {
-  const orders = useOrders();
-  if (!orders) return <div className="mx-auto max-w-3xl px-4 py-20 text-ink-soft sm:px-6">Loading your order...</div>;
-  const order = orders.find((o) => o.id === id);
-  if (!order) {
+  const { user } = useAuth();
+  const state = useApi<Order>(user ? `/api/orders/${encodeURIComponent(id)}` : "/api/auth/me", (j: { order: Order }) => j.order);
+
+  if (!user) return <LoginPrompt next={`/orders/${id}`} />;
+  if (state.status === "loading") return <div className="mx-auto max-w-3xl px-4 py-20 text-ink-soft sm:px-6">Loading your order...</div>;
+  if (state.status === "error" || !state.data?.id) {
     return (
       <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
         <h1 className="font-display text-3xl font-semibold">We cannot find that order</h1>
-        <p className="mt-2 text-ink-soft">Orders are saved in this browser. Open My rentals to see the ones you placed here.</p>
+        <p className="mt-2 text-ink-soft">It may belong to a different account. Open My rentals to see your orders.</p>
         <Link href="/account" className="mt-6 inline-block rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">My rentals</Link>
       </div>
     );
   }
+  const order = state.data;
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 12 }} className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-mint text-forest">
@@ -76,12 +105,18 @@ export function OrderConfirmation({ id }: { id: string }) {
 }
 
 export function AccountView() {
-  const orders = useOrders();
-  if (!orders) return <div className="mx-auto max-w-4xl px-4 py-20 text-ink-soft sm:px-6">Loading...</div>;
+  const { user } = useAuth();
+  const state = useApi<Order[]>(user ? "/api/orders" : "/api/auth/me", (j: { orders: Order[] }) => j.orders ?? []);
+
+  if (!user) return <LoginPrompt next="/account" />;
+  if (state.status === "loading") return <div className="mx-auto max-w-4xl px-4 py-20 text-ink-soft sm:px-6">Loading your rentals...</div>;
+  const orders = state.status === "ok" ? state.data : [];
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-4xl font-semibold tracking-tight">My rentals</h1>
-      <p className="mt-1 text-ink-soft">Orders you placed in this browser. Maintenance requests, extensions and returns arrive in the next build step.</p>
+      <p className="mt-1 text-ink-soft">Hello, {user.name}. Maintenance requests, extensions and returns arrive in the next build step.</p>
+      {state.status === "error" && <p role="alert" className="mt-6 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{state.message}</p>}
       {orders.length === 0 ? (
         <div className="mt-10 rounded-3xl border border-dashed border-line bg-paper p-12 text-center">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-sand text-moss"><PackageOpen className="h-7 w-7" /></div>

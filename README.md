@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RentEase
 
-## Getting Started
+A furniture and appliance rental platform: browse a catalog, pick a 3, 6 or 12 month plan, schedule delivery, and manage rentals.
+Built as a full stack project for the Unified Mentor internship.
 
-First, run the development server:
+**Stack:** Next.js (App Router), TypeScript, Tailwind CSS, Framer Motion, MongoDB (Mongoose), JWT cookie auth (jose), Zod validation.
+
+## Run it locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # optional: add a real MONGODB_URI and AUTH_SECRET
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no `MONGODB_URI` the dev server starts a temporary in-memory MongoDB, seeds the catalog and (if `ADMIN_EMAIL` and
+`ADMIN_PASSWORD` are set) an admin account. Data resets when the server restarts. For a real database, set `MONGODB_URI`
+(for example a free MongoDB Atlas cluster). In production `MONGODB_URI` and `AUTH_SECRET` are required.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What works now (build step 2)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Catalog of 17 products loaded from MongoDB, with stock tracking (sold out and low stock states)
+- Search, filters, sorting, product pages with live plan pricing, cart drawer and cart page
+- Accounts: register, log in, log out (bcrypt password hashes, signed httpOnly session cookie)
+- Checkout and orders saved in MongoDB. Prices are recalculated on the server, stock is reserved atomically,
+  and customers can only read their own orders
 
-## Learn More
+## API
 
-To learn more about Next.js, take a look at the following resources:
+| Method | Route | Notes |
+| --- | --- | --- |
+| POST | `/api/auth/register` | Creates an account and logs in |
+| POST | `/api/auth/login` | Logs in |
+| POST | `/api/auth/logout` | Clears the session |
+| GET | `/api/auth/me` | Current user or `null` |
+| GET | `/api/orders` | Your orders |
+| POST | `/api/orders` | Place an order (login required) |
+| GET | `/api/orders/[id]` | One order (owner or admin) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Step 3 user dashboard (maintenance requests, extend, return), step 4 admin dashboard and reports, step 5 PRD and technical
+documentation, tests and deployment.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Payments are a simulation. No card or bank details are collected.

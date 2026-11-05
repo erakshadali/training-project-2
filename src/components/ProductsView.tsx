@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "@/components/ProductCard";
-import { categories, products, type Category } from "@/data/products";
+import { categories, type Category } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { inr, monthlyRent } from "@/lib/pricing";
 
 type Sort = "popular" | "low" | "high" | "name";
 
 export function ProductsView() {
+  const { products } = useCatalog();
   const router = useRouter();
   const params = useSearchParams();
   const category = (params.get("category") as Category | null) ?? "all";
@@ -20,7 +22,7 @@ export function ProductsView() {
   const [sort, setSort] = useState<Sort>("popular");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const inCategory = useMemo(() => products.filter((p) => category === "all" || p.category === category), [category]);
+  const inCategory = useMemo(() => products.filter((p) => category === "all" || p.category === category), [category, products]);
   const subcategories = useMemo(() => ["all", ...Array.from(new Set(inCategory.map((p) => p.subcategory)))], [inCategory]);
 
   const list = useMemo(() => {

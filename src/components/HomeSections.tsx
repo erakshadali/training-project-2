@@ -7,7 +7,8 @@ import { ArrowRight, BadgeCheck, CalendarClock, Check, ChevronDown, Truck, Wrenc
 import { ProductArt } from "@/components/ProductArt";
 import { ProductCard } from "@/components/ProductCard";
 import { Counter, Reveal } from "@/components/motion";
-import { categories, products } from "@/data/products";
+import { categories } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { cities, tenures } from "@/data/config";
 import { inr } from "@/lib/pricing";
 import { useCart } from "@/context/CartContext";
@@ -227,6 +228,7 @@ export function HowItWorks() {
 }
 
 export function Featured() {
+  const { products } = useCatalog();
   const [cat, setCat] = useState<(typeof categories)[number]["id"]>("all");
   const list = products.filter((p) => p.popular && (cat === "all" || p.category === cat)).slice(0, 6);
   return (
@@ -346,6 +348,7 @@ export function RentVsBuy() {
 }
 
 export function Benefits() {
+  const { products } = useCatalog();
   const items = [
     { icon: Truck, title: "Free delivery and setup", text: "Assembled and installed at your door at no cost." },
     { icon: Wrench, title: "Free maintenance", text: "Raise a request in your account and we fix or replace the item." },

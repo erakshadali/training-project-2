@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { cities, type City, type TenureMonths } from "@/data/config";
-import { getProductById } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { lineTotals, type CartLine } from "@/lib/pricing";
 
 const CART_KEY = "rentease.cart.v1";
@@ -46,6 +46,7 @@ function write(key: string, value: unknown) {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { getProductById } = useCatalog();
   const [lines, setLines] = useState<CartLine[]>([]);
   const [city, setCityState] = useState<City>("Noida");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -58,7 +59,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setLines(saved);
     if ((cities as readonly string[]).includes(savedCity)) setCityState(savedCity as City);
     setReady(true);
-  }, []);
+  }, [getProductById]);
 
   useEffect(() => {
     if (ready) write(CART_KEY, lines);
@@ -129,7 +130,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clear,
       ready,
     };
-  }, [lines, city, setCity, drawerOpen, add, setQty, setMonths, remove, clear, ready]);
+  }, [lines, city, setCity, drawerOpen, add, setQty, setMonths, remove, clear, ready, getProductById]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

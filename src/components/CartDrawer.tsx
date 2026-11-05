@@ -6,11 +6,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { tenures, type TenureMonths } from "@/data/config";
-import { getProductById } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { ProductArt } from "@/components/ProductArt";
 import { inr, monthlyRent } from "@/lib/pricing";
 
 export function CartDrawer() {
+  const { getProductById } = useCatalog();
   const { drawerOpen, closeDrawer, lines, setQty, setMonths, remove, rentPerMonth, deposit, count } = useCart();
 
   useEffect(() => {

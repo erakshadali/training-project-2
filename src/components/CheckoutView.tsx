@@ -7,9 +7,10 @@ import { motion } from "framer-motion";
 import { Loader2, Lock } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { cities, type City } from "@/data/config";
-import { getProductById } from "@/data/products";
+import { useAuth } from "@/context/AuthContext";
+import { useCatalog } from "@/context/CatalogContext";
 import { addDays, inr, monthlyRent, toISODate } from "@/lib/pricing";
-import { newOrderId, saveOrder, type Order } from "@/lib/orders";
+import type { Order } from "@/lib/orders";
 
 const slots = ["9 AM to 12 PM", "12 PM to 3 PM", "3 PM to 6 PM"];
 const payments = [
@@ -22,6 +23,8 @@ type Errors = Partial<Record<"name" | "phone" | "email" | "address" | "pincode" 
 export function CheckoutView() {
   const router = useRouter();
   const { lines, rentPerMonth, deposit, city, setCity, clear, ready } = useCart();
+  const { user } = useAuth();
+  const { getProductById } = useCatalog();
   // Dates depend on "today", so they are computed after mount to keep the page prerenderable.
   const [{ minDate, maxDate }, setRange] = useState({ minDate: "", maxDate: "" });
   useEffect(() => {
@@ -31,9 +34,9 @@ export function CheckoutView() {
   }, []);
 
   const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
+    name: user?.name ?? "",
+    phone: user?.phone ?? "",
+    email: user?.email ?? "",
     address: "",
     pincode: "",
     deliveryDate: "",
@@ -42,6 +45,7 @@ export function CheckoutView() {
   });
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -51,6 +55,19 @@ export function CheckoutView() {
       <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
         <h1 className="font-display text-3xl font-semibold">Nothing to check out yet</h1>
         <Link href="/products" className="mt-6 inline-block rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">Browse products</Link>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
+        <h1 className="font-display text-3xl font-semibold">Log in to place your order</h1>
+        <p className="mt-2 text-ink-soft">Your cart is saved. Log in or create an account and you will come straight back here.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link href="/login?next=/checkout" className="rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">Log in</Link>
+          <Link href="/register?next=/checkout" className="rounded-full border border-forest px-6 py-3 font-semibold text-forest hover:bg-forest hover:text-white">Create account</Link>
+        </div>
       </div>
     );
   }
@@ -75,32 +92,41 @@ export function CheckoutView() {
       return;
     }
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 900));
-    const order: Order = {
-      id: newOrderId(),
-      createdAt: new Date().toISOString(),
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      address: form.address.trim(),
-      city,
-      pincode: form.pincode.trim(),
-      deliveryDate: form.deliveryDate,
-      slot: form.slot,
-      payment: payments.find((p) => p.id === form.payment)?.label ?? form.payment,
-      lines: lines.flatMap((l) => {
-        const p = getProductById(l.productId);
-        return p
-          ? [{ productId: p.id, name: p.name, months: l.months, qty: l.qty, rentPerMonth: monthlyRent(p, l.months), deposit: p.deposit }]
-          : [];
-      }),
-      rentPerMonth,
-      deposit,
-      status: "Scheduled",
-    };
-    saveOrder(order);
-    clear();
-    router.push(`/orders/${order.id}`);
+    setServerError("");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          address: form.address.trim(),
+          city,
+          pincode: form.pincode.trim(),
+          deliveryDate: form.deliveryDate,
+          slot: form.slot,
+          payment: form.payment,
+          lines: lines.map((l) => ({ productId: l.productId, months: l.months, qty: l.qty })),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { order?: Order; error?: string; fields?: Errors };
+      if (res.status === 401) {
+        router.push("/login?next=/checkout");
+        return;
+      }
+      if (!res.ok || !data.order) {
+        if (data.fields) setErrors(data.fields);
+        setServerError(data.error ?? "We could not place your order. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+      clear();
+      router.push(`/orders/${data.order.id}`);
+    } catch {
+      setServerError("Network problem. Check your connection and try again.");
+      setSubmitting(false);
+    }
   }
 
   const field = "mt-1.5 w-full rounded-2xl border bg-paper px-4 py-3 outline-none transition focus:border-moss";
@@ -202,6 +228,9 @@ export function CheckoutView() {
             <div className="flex justify-between"><dt className="text-ink-soft">Delivery and installation</dt><dd className="font-semibold text-moss">Free</dd></div>
             <div className="flex justify-between border-t border-line pt-3 text-base"><dt className="font-semibold">Due at delivery</dt><dd className="font-bold text-forest">{inr(rentPerMonth + deposit)}</dd></div>
           </dl>
+          {serverError && (
+            <p role="alert" className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{serverError}</p>
+          )}
           <motion.button
             whileTap={{ scale: 0.97 }}
             disabled={submitting}

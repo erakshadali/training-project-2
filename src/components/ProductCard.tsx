@@ -11,6 +11,7 @@ import { inr, monthlyRent } from "@/lib/pricing";
 export function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const { add } = useCart();
   const cheapest = monthlyRent(product, 12);
+  const soldOut = product.stock <= 0;
 
   return (
     <motion.article
@@ -35,6 +36,9 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
             tint={product.tint}
             className="relative h-[82%] w-[82%] transition-transform duration-500 group-hover:scale-105"
           />
+          {soldOut && (
+            <span className="absolute right-3 top-3 rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">Sold out</span>
+          )}
           {product.popular && (
             <span className="absolute left-3 top-3 rounded-full bg-coral px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
               Popular
@@ -61,10 +65,11 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => add(product.id, 12)}
-            className="flex h-10 items-center gap-1.5 rounded-full bg-forest px-4 text-sm font-semibold text-white transition hover:bg-coral"
+            disabled={soldOut}
+            className="flex h-10 items-center gap-1.5 rounded-full bg-forest px-4 text-sm font-semibold text-white transition hover:bg-coral disabled:cursor-not-allowed disabled:bg-ink-soft/40 disabled:hover:bg-ink-soft/40"
             aria-label={`Add ${product.name} to cart`}
           >
-            <Plus className="h-4 w-4" /> Rent
+            <Plus className="h-4 w-4" /> {soldOut ? "Sold out" : "Rent"}
           </motion.button>
         </div>
       </div>

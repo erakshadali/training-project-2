@@ -6,10 +6,11 @@ import { ArrowRight, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/context/CartContext";
 import { tenures, type TenureMonths } from "@/data/config";
-import { getProductById } from "@/data/products";
+import { useCatalog } from "@/context/CatalogContext";
 import { inr, monthlyRent } from "@/lib/pricing";
 
 export function CartView() {
+  const { getProductById } = useCatalog();
   const { lines, setQty, setMonths, remove, rentPerMonth, deposit, city, ready } = useCart();
 
   if (!ready) return <div className="mx-auto max-w-5xl px-4 py-20 text-ink-soft sm:px-6">Loading your cart...</div>;
