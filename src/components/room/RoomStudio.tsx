@@ -843,7 +843,7 @@ export function RoomStudio() {
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-semibold">{d.name}</span>
                               <span className="block text-xs text-ink-soft">{d.blurb}</span>
-                              <span className="mt-0.5 block text-[11px] font-semibold text-moss">{d.dims.w} x {d.dims.d} ft &middot; free{on ? ` &middot; ${on} in your room` : ""}</span>
+                              <span className="mt-0.5 block text-[11px] font-semibold text-moss">{`${d.dims.w} x ${d.dims.d} ft · free${on ? ` · ${on} in your room` : ""}`}</span>
                             </span>
                             <span className="shrink-0 rounded-full border border-forest px-3 py-1 text-xs font-semibold text-forest">Place</span>
                           </button>
