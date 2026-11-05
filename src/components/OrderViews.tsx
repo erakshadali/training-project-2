@@ -1,0 +1,110 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { CalendarDays, CheckCircle2, MapPin, PackageOpen } from "lucide-react";
+import { loadOrders, type Order } from "@/lib/orders";
+import { formatDate, inr } from "@/lib/pricing";
+
+function useOrders() {
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read localStorage after mount
+    setOrders(loadOrders());
+  }, []);
+  return orders;
+}
+
+export function OrderConfirmation({ id }: { id: string }) {
+  const orders = useOrders();
+  if (!orders) return <div className="mx-auto max-w-3xl px-4 py-20 text-ink-soft sm:px-6">Loading your order...</div>;
+  const order = orders.find((o) => o.id === id);
+  if (!order) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24 text-center sm:px-6">
+        <h1 className="font-display text-3xl font-semibold">We cannot find that order</h1>
+        <p className="mt-2 text-ink-soft">Orders are saved in this browser. Open My rentals to see the ones you placed here.</p>
+        <Link href="/account" className="mt-6 inline-block rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">My rentals</Link>
+      </div>
+    );
+  }
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 12 }} className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-mint text-forest">
+        <CheckCircle2 className="h-11 w-11" />
+      </motion.div>
+      <h1 className="font-display mt-6 text-center text-4xl font-semibold tracking-tight">Order placed, {order.name.split(" ")[0]}!</h1>
+      <p className="mt-2 text-center text-ink-soft">Order <span className="font-semibold text-ink">{order.id}</span>. A confirmation would go to {order.email} (demo).</p>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-3xl border border-line bg-paper p-5">
+          <p className="flex items-center gap-2 text-sm font-semibold text-moss"><CalendarDays className="h-4 w-4" /> Delivery</p>
+          <p className="mt-2 font-semibold">{formatDate(order.deliveryDate)}</p>
+          <p className="text-sm text-ink-soft">{order.slot}</p>
+        </div>
+        <div className="rounded-3xl border border-line bg-paper p-5">
+          <p className="flex items-center gap-2 text-sm font-semibold text-moss"><MapPin className="h-4 w-4" /> Address</p>
+          <p className="mt-2 text-sm">{order.address}</p>
+          <p className="text-sm text-ink-soft">{order.city} {order.pincode}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-3xl border border-line bg-paper p-5">
+        <h2 className="font-display text-xl font-semibold">Items</h2>
+        <ul className="mt-3 divide-y divide-line text-sm">
+          {order.lines.map((l) => (
+            <li key={l.productId} className="flex justify-between gap-4 py-3">
+              <span>{l.qty} x {l.name} <span className="text-ink-soft">({l.months} months)</span></span>
+              <span className="font-semibold">{inr(l.rentPerMonth * l.qty)}/mo</span>
+            </li>
+          ))}
+        </ul>
+        <dl className="mt-3 space-y-1.5 border-t border-line pt-3 text-sm">
+          <div className="flex justify-between"><dt className="text-ink-soft">Monthly rent</dt><dd className="font-bold">{inr(order.rentPerMonth)}</dd></div>
+          <div className="flex justify-between"><dt className="text-ink-soft">Refundable deposit</dt><dd className="font-semibold">{inr(order.deposit)}</dd></div>
+          <div className="flex justify-between"><dt className="text-ink-soft">Payment</dt><dd className="font-semibold">{order.payment}</dd></div>
+        </dl>
+      </div>
+
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Link href="/account" className="rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">View my rentals</Link>
+        <Link href="/products" className="rounded-full border border-forest px-6 py-3 font-semibold text-forest hover:bg-forest hover:text-white">Keep shopping</Link>
+      </div>
+    </div>
+  );
+}
+
+export function AccountView() {
+  const orders = useOrders();
+  if (!orders) return <div className="mx-auto max-w-4xl px-4 py-20 text-ink-soft sm:px-6">Loading...</div>;
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <h1 className="font-display text-4xl font-semibold tracking-tight">My rentals</h1>
+      <p className="mt-1 text-ink-soft">Orders you placed in this browser. Maintenance requests, extensions and returns arrive in the next build step.</p>
+      {orders.length === 0 ? (
+        <div className="mt-10 rounded-3xl border border-dashed border-line bg-paper p-12 text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-sand text-moss"><PackageOpen className="h-7 w-7" /></div>
+          <p className="mt-4 font-semibold">No rentals yet</p>
+          <Link href="/products" className="mt-4 inline-block rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">Start renting</Link>
+        </div>
+      ) : (
+        <ul className="mt-8 space-y-4">
+          {orders.map((o, i) => (
+            <motion.li key={o.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-3xl border border-line bg-paper p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">{o.id}</p>
+                <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-forest">{o.status}</span>
+              </div>
+              <p className="mt-1 text-sm text-ink-soft">Delivery {formatDate(o.deliveryDate)}, {o.slot} in {o.city}</p>
+              <ul className="mt-3 space-y-1 text-sm">
+                {o.lines.map((l) => (<li key={l.productId}>{l.qty} x {l.name} <span className="text-ink-soft">({l.months} months, {inr(l.rentPerMonth * l.qty)}/mo)</span></li>))}
+              </ul>
+              <Link href={`/orders/${o.id}`} className="mt-3 inline-block text-sm font-semibold text-moss hover:underline">View order</Link>
+            </motion.li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
