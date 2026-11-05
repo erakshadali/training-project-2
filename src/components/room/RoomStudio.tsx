@@ -5,7 +5,7 @@ import { AnimatePresence, m } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Coffee, Frame, LampFloor, RectangleHorizontal, Save, Sprout } from "lucide-react";
+import { Coffee, Frame, LampFloor, Maximize2, Minimize2, RectangleHorizontal, Save, Sprout } from "lucide-react";
 import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Wand2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import dynamic from "next/dynamic";
@@ -136,6 +136,8 @@ export function RoomStudio() {
   const [step, setStep] = useState<0.25 | 1>(1);
   const [usePhotos, setUsePhotos] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [bigPhoto, setBigPhoto] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
   const [saved, setSaved] = useState<SavedSummary[]>([]);
@@ -608,12 +610,24 @@ export function RoomStudio() {
   if (stage === "studio" && photo && cal && colors) {
     const aspect = photo.w / photo.h;
     const deg = selected ? Math.round(((((selected.rot * 180) / Math.PI) % 360) + 360) % 360) : 0;
-    const iconBtn = "grid h-8 w-8 place-items-center rounded-lg border border-line hover:border-moss";
-    const tool = "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition";
+    const lightControls = (
+      <div className="grid w-full grid-cols-2 gap-1.5 lg:gap-2">
+              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-2.5 py-1.5 text-xs font-semibold lg:px-3 lg:py-2">
+                <Lightbulb className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Brightness</span>
+                <input type="range" min={0.5} max={1.5} step={0.05} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
+              </label>
+              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-2.5 py-1.5 text-xs font-semibold lg:px-3 lg:py-2">
+                <Sparkles className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Light</span>
+                <input type="range" min={0} max={360} step={5} value={lightAngle} onChange={(e) => setLightAngle(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
+              </label>
+            </div>
+    );
+    const iconBtn = "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line hover:border-moss lg:h-8 lg:w-8";
+    const tool = "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition";
     return (
-      <div className="mx-auto max-w-[112rem] px-3 py-3 sm:px-5 lg:flex lg:h-[calc(100dvh-4rem)] lg:flex-col lg:overflow-hidden">
+      <div className="mx-auto flex h-[calc(100dvh-4rem)] max-w-[112rem] flex-col overflow-hidden px-3 py-2 sm:px-5 lg:py-3">
         {/* One toolbar with everything for the photo: change it, fix the floor, furnish, save, download, clear */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden">
           <button onClick={() => setStage("floor")} className={`${tool} border border-line text-moss hover:border-moss`}><ArrowLeft className="h-4 w-4" /> Adjust floor</button>
           <label className={`${tool} cursor-pointer border border-line text-moss hover:border-moss`}>
             <ImagePlus className="h-4 w-4" /> Change photo
@@ -621,10 +635,10 @@ export function RoomStudio() {
           </label>
           <button onClick={autoFurnish} className={`${tool} bg-coral text-white hover:bg-coral-deep`}><Wand2 className="h-4 w-4" /> Furnish it for me</button>
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <button onClick={() => { setSaveOpen((o) => !o); setSaveError(""); }} aria-expanded={saveOpen} className={`${tool} border border-forest text-forest hover:bg-forest hover:text-white`}><Save className="h-4 w-4" /> Save layout</button>
             {saveOpen && (
-              <div className="absolute left-0 top-full z-40 mt-2 w-[min(26rem,calc(100vw-1.5rem))] rounded-3xl border-2 border-forest bg-paper p-4 shadow-xl">
+              <div className="fixed left-3 right-3 top-[8.75rem] z-40 rounded-3xl border-2 border-forest bg-paper p-4 shadow-xl lg:absolute lg:left-0 lg:right-auto lg:top-full lg:mt-2 lg:w-[26rem]">
                 {!user ? (
                   <div className="space-y-3">
                     <p className="text-sm text-ink-soft">Log in to save this room to your account. Your photo and furniture are held for you while you log in.</p>
@@ -651,7 +665,7 @@ export function RoomStudio() {
           <button onClick={download} disabled={!items.length} className={`${tool} border border-forest text-forest hover:bg-forest hover:text-white disabled:opacity-40`}><Download className="h-4 w-4" /> Download picture</button>
 
           {confirmClear ? (
-            <span className="flex items-center gap-2 rounded-full bg-coral/10 py-1 pl-4 pr-1 text-sm font-semibold text-coral-deep">
+            <span className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-coral/10 py-1 pl-4 pr-1 text-sm font-semibold text-coral-deep">
               Remove all {items.length}?
               <button onClick={() => { clearAll(); setConfirmClear(false); }} className="rounded-full bg-coral-deep px-3.5 py-1.5 text-white">Yes</button>
               <button onClick={() => setConfirmClear(false)} className="rounded-full bg-paper px-3.5 py-1.5 text-ink">No</button>
@@ -660,7 +674,7 @@ export function RoomStudio() {
             <button onClick={() => setConfirmClear(true)} disabled={!items.length} className={`${tool} border border-line text-coral-deep hover:border-coral disabled:opacity-40`}><Trash2 className="h-4 w-4" /> Remove all</button>
           )}
 
-          <div className="flex items-center gap-1.5 lg:ml-auto" role="group" aria-label="Look of the furniture">
+          <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap lg:ml-auto" role="group" aria-label="Look of the furniture">
             <span className="text-xs font-semibold text-ink-soft">Look</span>
             {([[true, "Photos"], [false, "3D"]] as [boolean, string][]).map(([v, l]) => (
               <button key={l} onClick={() => setUsePhotos(v)} aria-pressed={usePhotos === v} title={v ? "Use product photos where we have one" : "Use 3D models only"} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${usePhotos === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
@@ -672,13 +686,14 @@ export function RoomStudio() {
           {toast && <m.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} role="status" className="fixed bottom-4 left-1/2 z-50 flex w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 items-center gap-2 rounded-2xl bg-forest px-4 py-3 text-sm font-semibold text-white shadow-xl"><Check className="h-4 w-4 shrink-0" /> {toast}</m.p>}
         </AnimatePresence>
 
-        <div className="mt-3 grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="min-w-0 contents lg:flex lg:min-h-0 lg:flex-col lg:items-center lg:justify-center lg:gap-2">
+        <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 lg:mt-3 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-4">
+          <div className="flex min-w-0 shrink-0 flex-col items-center gap-2 lg:min-h-0 lg:shrink lg:justify-center">
             <div
-              className="sticky top-[4.25rem] z-20 -mx-3 bg-cream/95 px-3 pb-2 pt-1 backdrop-blur sm:-mx-5 sm:px-5 lg:static lg:mx-0 lg:w-[min(100%,calc((100dvh_-_12.5rem)*var(--ar)))] lg:bg-transparent lg:p-0 lg:backdrop-blur-none"
+              className={`relative ${bigPhoto ? "w-[min(100%,calc((60dvh)*var(--ar)))]" : "w-[min(100%,calc((38dvh)*var(--ar)))]"} lg:w-[min(100%,calc((100dvh_-_12.5rem)*var(--ar)))]`}
               style={{ "--ar": aspect } as React.CSSProperties}
             >
               <div className="relative">
+                <button onClick={() => setBigPhoto((b) => !b)} aria-pressed={bigPhoto} aria-label={bigPhoto ? "Make the photo smaller" : "Make the photo bigger"} className="absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-forest/85 text-white shadow-md lg:hidden">{bigPhoto ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
                 <Scene
                   handleRef={sceneRef}
                   photoUrl={photo.url} imgW={photo.w} imgH={photo.h} cal={cal} W={Wn} D={Dn}
@@ -708,81 +723,65 @@ export function RoomStudio() {
             </div>
 
             {items.length === 0 && (
-              <p className="rounded-2xl bg-sand px-4 py-2.5 text-sm text-ink-soft lg:w-full"><strong className="text-ink">Start:</strong> tap a piece in the furniture list, then drag it in the photo or use the Arrange box. <strong className="text-ink">Furnish it for me</strong> fills the room for you.</p>
+              <p className="hidden rounded-2xl bg-sand px-4 py-2.5 text-sm text-ink-soft sm:block lg:w-full"><strong className="text-ink">Start:</strong> tap a piece in the furniture list, then drag it in the photo or use the Arrange box. <strong className="text-ink">Furnish it for me</strong> fills the room for you.</p>
             )}
 
-            <div className="grid grid-cols-2 gap-2 lg:w-full">
-              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-3 py-2 text-xs font-semibold">
-                <Lightbulb className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Brightness</span>
-                <input type="range" min={0.5} max={1.5} step={0.05} value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
-              </label>
-              <label className="flex items-center gap-2 rounded-2xl border border-line bg-paper px-3 py-2 text-xs font-semibold">
-                <Sparkles className="h-4 w-4 shrink-0 text-moss" /> <span className="shrink-0">Light</span>
-                <input type="range" min={0} max={360} step={5} value={lightAngle} onChange={(e) => setLightAngle(Number(e.target.value))} className="min-w-0 flex-1 accent-[#c24424]" />
-              </label>
-            </div>
+            <div className="hidden w-full lg:block">{lightControls}</div>
           </div>
 
-          <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:gap-2">
+          <aside className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
             <AnimatePresence>
               {selected && selectedProduct && (
-                <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-3xl border-2 border-forest bg-paper p-3.5 lg:shrink-0">
+                <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="order-last shrink-0 rounded-3xl border-2 border-forest bg-paper p-3 lg:order-first lg:p-3.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-moss">Arrange piece {items.findIndex((i) => i.id === selected.id) + 1} &middot; {dimsFor(selectedProduct).w} x {dimsFor(selectedProduct).d} x {dimsFor(selectedProduct).h} ft</p>
                       <p className="truncate text-sm font-semibold">{selectedProduct.name}</p>
                     </div>
-                    <button onClick={() => setSelectedId(null)} className="shrink-0 rounded-full bg-forest px-3.5 py-1.5 text-xs font-semibold text-white">Done</button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button onClick={() => setEditOpen((o) => !o)} aria-expanded={editOpen} aria-label={editOpen ? "Hide edit options" : "Show edit options"} className="flex h-8 items-center gap-1 rounded-full border border-forest px-3 text-xs font-semibold text-forest lg:hidden">{editOpen ? "Hide" : "Edit"}<ChevronUp className={`h-3.5 w-3.5 transition ${editOpen ? "rotate-180" : ""}`} /></button>
+                      <button onClick={() => setSelectedId(null)} className="rounded-full bg-forest px-3.5 py-1.5 text-xs font-semibold text-white">Done</button>
+                    </div>
                   </div>
+                  <div className={editOpen ? "" : "hidden lg:block"}>
                   {problems[selected.id] && <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-coral/10 px-3 py-1.5 text-xs font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {problems[selected.id] === "overlap" ? "Overlaps another piece. Move it apart." : "Outside the floor area."}</p>}
 
-                  <div className="mt-2.5 flex gap-3">
-                    <div className="grid shrink-0 grid-cols-3 gap-1" role="group" aria-label="Move piece">
-                      <span />
-                      <button onClick={() => nudge(selected.id, 0, -step)} aria-label="Move farther from you" title="Farther" className={iconBtn}><ChevronUp className="h-4 w-4" /></button>
-                      <span />
-                      <button onClick={() => nudge(selected.id, -step, 0)} aria-label="Move left" title="Left" className={iconBtn}><ChevronLeft className="h-4 w-4" /></button>
-                      <span className="grid h-8 w-8 place-items-center text-[10px] font-semibold text-ink-soft">Move</span>
-                      <button onClick={() => nudge(selected.id, step, 0)} aria-label="Move right" title="Right" className={iconBtn}><ChevronRight className="h-4 w-4" /></button>
-                      <span />
-                      <button onClick={() => nudge(selected.id, 0, step)} aria-label="Move closer to you" title="Closer" className={iconBtn}><ChevronDown className="h-4 w-4" /></button>
-                      <span />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-2 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold">Step</span>
-                        {([[0.25, "3 in"], [1, "1 ft"]] as [0.25 | 1, string][]).map(([v, l]) => (
-                          <button key={v} onClick={() => setStep(v)} aria-pressed={step === v} className={`flex-1 rounded-full px-2 py-1 font-semibold ${step === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn 90 degrees left" className={iconBtn}><RotateCcw className="h-4 w-4" /></button>
-                        <input type="range" min={0} max={359} step={1} value={deg} onChange={(e) => setAngle(selected.id, Number(e.target.value))} aria-label={`Turn, ${deg} degrees`} className="min-w-0 flex-1 accent-[#c24424]" />
-                        <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn 90 degrees right" className={iconBtn}><RotateCw className="h-4 w-4" /></button>
-                      </div>
-                      <p className="text-ink-soft">Turn {deg}°</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {([["back", "Back wall"], ["left", "Left"], ["right", "Right"], ["centre", "Centre"]] as const).map(([w, l]) => (
-                      <button key={w} onClick={() => snapTo(selected.id, w)} className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss">{l}</button>
+                  <div className="mt-2.5 flex items-center gap-1.5" role="group" aria-label="Move piece">
+                    <button onClick={() => nudge(selected.id, -step, 0)} aria-label="Move left" title="Left" className={iconBtn}><ChevronLeft className="h-4 w-4" /></button>
+                    <button onClick={() => nudge(selected.id, 0, -step)} aria-label="Move farther from you" title="Farther" className={iconBtn}><ChevronUp className="h-4 w-4" /></button>
+                    <button onClick={() => nudge(selected.id, 0, step)} aria-label="Move closer to you" title="Closer" className={iconBtn}><ChevronDown className="h-4 w-4" /></button>
+                    <button onClick={() => nudge(selected.id, step, 0)} aria-label="Move right" title="Right" className={iconBtn}><ChevronRight className="h-4 w-4" /></button>
+                    <span className="mx-1 h-6 w-px bg-line" aria-hidden />
+                    {([[0.25, "3 in"], [1, "1 ft"]] as [0.25 | 1, string][]).map(([v, l]) => (
+                      <button key={v} onClick={() => setStep(v)} aria-pressed={step === v} aria-label={`Step ${l}`} className={`rounded-full px-2.5 py-1.5 text-xs font-semibold ${step === v ? "bg-forest text-white" : "bg-sand text-ink-soft"}`}>{l}</button>
                     ))}
-                    <span className="mx-0.5 w-px self-stretch bg-line" aria-hidden />
-                    <button onClick={() => duplicate(selected.id)} className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss"><Copy className="h-3 w-3" /> Copy</button>
-                    <button onClick={() => remove(selected.id)} className="flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-coral-deep hover:border-coral"><Trash2 className="h-3 w-3" /> Remove</button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn 90 degrees left" className={iconBtn}><RotateCcw className="h-4 w-4" /></button>
+                    <input type="range" min={0} max={359} step={1} value={deg} onChange={(e) => setAngle(selected.id, Number(e.target.value))} aria-label={`Turn, ${deg} degrees`} className="min-w-0 flex-1 accent-[#c24424]" />
+                    <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn 90 degrees right" className={iconBtn}><RotateCw className="h-4 w-4" /></button>
+                    <span className="w-10 shrink-0 text-right text-xs font-semibold text-ink-soft">{deg}°</span>
+                  </div>
+                  <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] lg:flex-wrap [&::-webkit-scrollbar]:hidden">
+                    {([["back", "Back wall"], ["left", "Left"], ["right", "Right"], ["centre", "Centre"]] as const).map(([w, l]) => (
+                      <button key={w} onClick={() => snapTo(selected.id, w)} className="shrink-0 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss">{l}</button>
+                    ))}
+                    <span className="mx-0.5 w-px shrink-0 self-stretch bg-line" aria-hidden />
+                    <button onClick={() => duplicate(selected.id)} className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-xs font-semibold hover:border-moss"><Copy className="h-3 w-3" /> Copy</button>
+                    <button onClick={() => remove(selected.id)} className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-coral-deep hover:border-coral"><Trash2 className="h-3 w-3" /> Remove</button>
+                  </div>
                   </div>
                 </m.div>
               )}
             </AnimatePresence>
 
-            <div className="flex gap-2 lg:shrink-0" role="tablist" aria-label="Room Studio panels">
+            <div className="flex shrink-0 gap-2" role="tablist" aria-label="Room Studio panels">
               {([["furniture", "Furniture"], ["decor", "Decor"], ["check", `Check${items.length ? ` (${items.length})` : ""}`]] as [Tab, string][]).map(([id, label]) => (
                 <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold transition ${tab === id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{label}</button>
               ))}
             </div>
 
-            <div className="mt-3 lg:mt-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {tab === "furniture" ? (
                 <div>
                   <div className="flex items-center justify-between gap-2 text-xs text-ink-soft">
@@ -854,6 +853,10 @@ export function RoomStudio() {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="lg:hidden">
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-moss">Match the light in your photo</p>
+                    {lightControls}
+                  </div>
                   <div className="rounded-3xl border border-line bg-paper p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-moss">Floor space used</p>
                     <div className="mt-2 flex items-end justify-between"><p className="font-display text-3xl font-semibold text-forest">{cov.percent}%</p><p className={`text-sm font-semibold ${cov.verdict === "Too crowded" ? "text-coral-deep" : "text-forest"}`}>{cov.verdict}</p></div>
@@ -1009,6 +1012,14 @@ function FloorStep(props: {
   const { photo, quad, setQuad, W, D, setW, setD, hfov, setHfov, cal, isSample, error, busy, onBack, onNext } = props;
   const box = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
+  const [shownW, setShownW] = useState(360);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setShownW(Math.max(80, el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const labels = ["Back left", "Back right", "Front right", "Front left"];
   const Wn = Number(W) || 0, Dn = Number(D) || 0;
 
@@ -1025,7 +1036,9 @@ function FloorStep(props: {
     const cx = Wn / 2 - 1.5, cz = Dn / 2 - 1.5;
     ref3ft = [[cx, cz], [cx + 3, cz], [cx + 3, cz + 3], [cx, cz + 3]].map(([x, z]) => cal.project([x, 0, z]));
   }
-  const r = Math.max(10, photo.w / 70);
+  // photo pixels per screen pixel, so dots, labels and lines stay a touchable size even when a tall photo is shown narrow
+  const k = photo.w / shownW;
+  const r = Math.max(10, photo.w / 70, 9 * k);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -1034,16 +1047,16 @@ function FloorStep(props: {
       <p className="mt-1 max-w-2xl text-ink-soft">{isSample ? "The corners of this sample hall are already marked. Check the grid lines, then continue." : "Drag the four dots onto the corners of the floor, in this order: back left, back right, front right, front left. If a corner is hidden behind something, put the dot where it would be."}</p>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_20rem]">
-        <div ref={box} className="relative w-full touch-none select-none overflow-hidden rounded-3xl bg-sand" style={{ aspectRatio: `${photo.w} / ${photo.h}` }}
+        <div ref={box} className="relative mx-auto w-[min(100%,calc((56dvh)*var(--ar)))] touch-none select-none overflow-hidden rounded-3xl bg-sand lg:w-[min(100%,calc((100dvh_-_15rem)*var(--ar)))]" style={{ aspectRatio: `${photo.w} / ${photo.h}`, "--ar": photo.w / photo.h } as React.CSSProperties}
           onPointerMove={(e) => { if (active === null) return; const next = [...quad]; next[active] = toImage(e); setQuad(next); }}
           onPointerUp={() => setActive(null)} onPointerCancel={() => setActive(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- local data URL */}
           <img src={photo.url} alt="Your room" draggable={false} className="absolute inset-0 h-full w-full" />
           <svg viewBox={`0 0 ${photo.w} ${photo.h}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-            <polygon points={quad.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(47,210,122,0.18)" stroke="#2fd27a" strokeWidth={photo.w / 300} />
-            {grid.map(([a, b], i) => <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,0.55)" strokeWidth={photo.w / 700} />)}
-            {ref3ft.length === 4 && <polygon points={ref3ft.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(194,68,36,0.45)" stroke="#c24424" strokeWidth={photo.w / 400} />}
-            {ref3ft.length === 4 && <text x={(ref3ft[0].x + ref3ft[2].x) / 2} y={(ref3ft[0].y + ref3ft[2].y) / 2} textAnchor="middle" fontSize={photo.w / 45} fontWeight={700} fill="#fff" stroke="rgba(0,0,0,0.5)" strokeWidth={photo.w / 600}>3 x 3 ft</text>}
+            <polygon points={quad.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(47,210,122,0.18)" stroke="#2fd27a" strokeWidth={Math.max(photo.w / 300, 1.6 * k)} />
+            {grid.map(([a, b], i) => <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,0.55)" strokeWidth={Math.max(photo.w / 700, 0.8 * k)} />)}
+            {ref3ft.length === 4 && <polygon points={ref3ft.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(194,68,36,0.45)" stroke="#c24424" strokeWidth={Math.max(photo.w / 400, 1.4 * k)} />}
+            {ref3ft.length === 4 && <text x={(ref3ft[0].x + ref3ft[2].x) / 2} y={(ref3ft[0].y + ref3ft[2].y) / 2} textAnchor="middle" fontSize={Math.max(photo.w / 45, 11 * k)} fontWeight={700} fill="#fff" stroke="rgba(0,0,0,0.5)" strokeWidth={Math.max(photo.w / 600, 0.8 * k)}>3 x 3 ft</text>}
             {quad.map((p, i) => (
               <g key={i} onPointerDown={(e) => { (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId); setActive(i); }} style={{ cursor: "grab" }}>
                 <circle cx={p.x} cy={p.y} r={r * 1.9} fill="transparent" />
