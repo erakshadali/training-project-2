@@ -406,7 +406,8 @@ export function RoomStudio() {
         </AnimatePresence>
 
         <div className="mt-4 grid gap-5 lg:grid-cols-[1fr_24rem]">
-          <div className="min-w-0">
+          <div className="min-w-0 contents lg:block">
+            <div className="sticky top-[4.25rem] z-20 -mx-4 bg-cream/95 px-4 pb-2 pt-1 backdrop-blur sm:mx-0 sm:px-0 lg:static lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <div className="relative">
               <Scene
                 handleRef={sceneRef}
@@ -434,8 +435,9 @@ export function RoomStudio() {
                 })}
               </div>
             </div>
+            </div>
             <ol className="mt-3 grid gap-2 rounded-2xl bg-sand px-4 py-3 text-sm text-ink-soft sm:grid-cols-3">
-              <li><strong className="text-ink">1. Add:</strong> tap a piece in the list on the right.</li>
+              <li><strong className="text-ink">1. Add:</strong> tap a piece in the furniture list.</li>
               <li><strong className="text-ink">2. Select:</strong> tap its numbered tag or click it in the photo. A green outline shows it is selected.</li>
               <li><strong className="text-ink">3. Arrange:</strong> drag it, or use the Arrange box to move, turn or snap it to a wall.</li>
             </ol>
