@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AccountView } from "@/components/OrderViews";
+import { Dashboard } from "@/components/Dashboard";
 
 export const metadata: Metadata = { title: "My rentals" };
 
 export default function AccountPage() {
-  return <AccountView />;
+  return <Dashboard />;
 }

@@ -5,6 +5,7 @@ import { cities } from "@/data/config";
 import { addDays, monthlyRent, toISODate } from "@/lib/pricing";
 import { newOrderId } from "@/lib/orders";
 import { serialize } from "@/lib/serializeOrder";
+import { ensureRentals } from "@/lib/rentalsServer";
 import { toProduct } from "@/lib/catalog";
 import { OrderModel, ProductModel } from "@/models";
 
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
       rentPerMonth: lines.reduce((s, l) => s + l.rentPerMonth * l.qty, 0),
       deposit: lines.reduce((s, l) => s + l.deposit * l.qty, 0),
     });
+    await ensureRentals(user.id);
     return json({ order: serialize(order.toObject()) }, 201);
   } catch (err) {
     for (const r of reserved) await ProductModel.updateOne({ pid: r.pid }, { $inc: { stock: r.qty } });

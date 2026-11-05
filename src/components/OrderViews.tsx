@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CalendarDays, CheckCircle2, MapPin, PackageOpen } from "lucide-react";
+import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import type { Order } from "@/lib/orders";
 import { formatDate, inr } from "@/lib/pricing";
@@ -100,46 +100,6 @@ export function OrderConfirmation({ id }: { id: string }) {
         <Link href="/account" className="rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">View my rentals</Link>
         <Link href="/products" className="rounded-full border border-forest px-6 py-3 font-semibold text-forest hover:bg-forest hover:text-white">Keep shopping</Link>
       </div>
-    </div>
-  );
-}
-
-export function AccountView() {
-  const { user } = useAuth();
-  const state = useApi<Order[]>(user ? "/api/orders" : "/api/auth/me", (j: { orders: Order[] }) => j.orders ?? []);
-
-  if (!user) return <LoginPrompt next="/account" />;
-  if (state.status === "loading") return <div className="mx-auto max-w-4xl px-4 py-20 text-ink-soft sm:px-6">Loading your rentals...</div>;
-  const orders = state.status === "ok" ? state.data : [];
-
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <h1 className="font-display text-4xl font-semibold tracking-tight">My rentals</h1>
-      <p className="mt-1 text-ink-soft">Hello, {user.name}. Maintenance requests, extensions and returns arrive in the next build step.</p>
-      {state.status === "error" && <p role="alert" className="mt-6 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{state.message}</p>}
-      {orders.length === 0 ? (
-        <div className="mt-10 rounded-3xl border border-dashed border-line bg-paper p-12 text-center">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-sand text-moss"><PackageOpen className="h-7 w-7" /></div>
-          <p className="mt-4 font-semibold">No rentals yet</p>
-          <Link href="/products" className="mt-4 inline-block rounded-full bg-forest px-6 py-3 font-semibold text-white hover:bg-coral">Start renting</Link>
-        </div>
-      ) : (
-        <ul className="mt-8 space-y-4">
-          {orders.map((o, i) => (
-            <motion.li key={o.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="rounded-3xl border border-line bg-paper p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold">{o.id}</p>
-                <span className="rounded-full bg-mint px-3 py-1 text-xs font-bold text-forest">{o.status}</span>
-              </div>
-              <p className="mt-1 text-sm text-ink-soft">Delivery {formatDate(o.deliveryDate)}, {o.slot} in {o.city}</p>
-              <ul className="mt-3 space-y-1 text-sm">
-                {o.lines.map((l) => (<li key={l.productId}>{l.qty} x {l.name} <span className="text-ink-soft">({l.months} months, {inr(l.rentPerMonth * l.qty)}/mo)</span></li>))}
-              </ul>
-              <Link href={`/orders/${o.id}`} className="mt-3 inline-block text-sm font-semibold text-moss hover:underline">View order</Link>
-            </motion.li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
