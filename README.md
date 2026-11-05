@@ -93,6 +93,7 @@ npm run typecheck   # strict TypeScript
 npm run lint        # ESLint
 BASE_URL=http://localhost:3000 bash scripts/api-test-admin.sh     # end-to-end API tests (needs a running server)
 BASE_URL=http://localhost:3000 bash scripts/api-test-rentals.sh
+node scripts/live-e2e-test.mjs https://your-site.vercel.app      # 100+ checks of every feature on a deployed site (needs ADMIN_* and DEMO_* in .env.local)
 ```
 
 ## Deploy
