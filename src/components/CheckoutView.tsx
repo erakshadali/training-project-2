@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Lock } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { cities, type City } from "@/data/config";
+import type { City } from "@/data/config";
 import { useAuth } from "@/context/AuthContext";
 import { useCatalog } from "@/context/CatalogContext";
 import { addDays, inr, monthlyRent, toISODate } from "@/lib/pricing";
@@ -24,7 +24,7 @@ export function CheckoutView() {
   const router = useRouter();
   const { lines, rentPerMonth, deposit, city, setCity, clear, ready } = useCart();
   const { user } = useAuth();
-  const { getProductById } = useCatalog();
+  const { getProductById, areas: cities } = useCatalog();
   // Dates depend on "today", so they are computed after mount to keep the page prerenderable.
   const [{ minDate, maxDate }, setRange] = useState({ minDate: "", maxDate: "" });
   useEffect(() => {

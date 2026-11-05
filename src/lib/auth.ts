@@ -50,7 +50,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     if (!payload.sub) return null;
     await connectDb();
     const u = await UserModel.findById(payload.sub).lean();
-    if (!u) return null;
+    if (!u || u.disabled) return null;
     return { id: String(u._id), name: u.name, email: u.email, phone: u.phone ?? "", role: u.role };
   } catch {
     return null;

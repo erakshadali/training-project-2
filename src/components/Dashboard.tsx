@@ -11,6 +11,7 @@ import { useCatalog } from "@/context/CatalogContext";
 import { maintenanceCategories, tenures } from "@/data/config";
 import type { Product } from "@/data/products";
 import type { Order } from "@/lib/orders";
+import { refundFor, type Claim } from "@/lib/claims";
 import { formatDate, inr, monthlyRent } from "@/lib/pricing";
 import { addDaysISO, addMonthsISO, earlyClosureFee, returnSlots, tierFor, todayISO, type MaintenanceRequest, type Phase, type Rental } from "@/lib/rentals";
 
@@ -45,17 +46,20 @@ export function Dashboard() {
   const [rentals, setRentals] = useState<Rental[] | null>(null);
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [disputing, setDisputing] = useState<Claim | null>(null);
   const [loadError, setLoadError] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [r, m, o] = await Promise.all([fetch("/api/rentals"), fetch("/api/maintenance"), fetch("/api/orders")]);
-      if (!r.ok || !m.ok || !o.ok) throw new Error("load");
+      const [r, m, o, c] = await Promise.all([fetch("/api/rentals"), fetch("/api/maintenance"), fetch("/api/orders"), fetch("/api/claims")]);
+      if (!r.ok || !m.ok || !o.ok || !c.ok) throw new Error("load");
       setRentals(((await r.json()) as { rentals: Rental[] }).rentals);
       setRequests(((await m.json()) as { requests: MaintenanceRequest[] }).requests);
       setOrders(((await o.json()) as { orders: Order[] }).orders);
+      setClaims(((await c.json()) as { claims: Claim[] }).claims);
       setLoadError("");
     } catch {
       setLoadError("We could not load your rentals. Please refresh the page.");
@@ -166,12 +170,12 @@ export function Dashboard() {
             ) : (
               <div className="space-y-4">
                 <AnimatePresence initial={false}>
-                  {current.map((r) => (<RentalCard key={r.id} rental={r} onAction={(kind) => setDialog({ kind, rental: r })} art={getProductById(r.productId)} />))}
+                  {current.map((r) => (<RentalCard key={r.id} rental={r} onAction={(kind) => setDialog({ kind, rental: r })} art={getProductById(r.productId)} claims={claims.filter((c) => c.rentalId === r.id)} onDispute={setDisputing} />))}
                 </AnimatePresence>
                 {past.length > 0 && (
                   <>
                     <h2 className="font-display pt-4 text-xl font-semibold">Past rentals</h2>
-                    {past.map((r) => (<RentalCard key={r.id} rental={r} onAction={() => {}} art={getProductById(r.productId)} />))}
+                    {past.map((r) => (<RentalCard key={r.id} rental={r} onAction={() => {}} art={getProductById(r.productId)} claims={claims.filter((c) => c.rentalId === r.id)} onDispute={setDisputing} />))}
                   </>
                 )}
               </div>
@@ -193,6 +197,9 @@ export function Dashboard() {
       <Modal open={dialog?.kind === "return"} onClose={() => setDialog(null)} title={dialog?.rental.status === "Return scheduled" ? "Change pickup" : "Schedule a pickup"}>
         {dialog?.kind === "return" && <ReturnForm rental={dialog.rental} onDone={(m) => done(m)} />}
       </Modal>
+      <Modal open={!!disputing} onClose={() => setDisputing(null)} title="Dispute this charge">
+        {disputing && <DisputeForm claim={disputing} onDone={() => { setDisputing(null); done("Dispute sent. The amount is held until our team decides."); }} />}
+      </Modal>
       <Modal open={dialog?.kind === "cancel"} onClose={() => setDialog(null)} title="Cancel this item?">
         {dialog?.kind === "cancel" && <CancelForm rental={dialog.rental} onClose={() => setDialog(null)} onDone={() => done("Item cancelled. Nothing is charged.")} />}
       </Modal>
@@ -200,7 +207,7 @@ export function Dashboard() {
   );
 }
 
-function RentalCard({ rental: r, art, onAction }: { rental: Rental; art?: Product; onAction: (k: "repair" | "extend" | "return" | "cancel") => void }) {
+function RentalCard({ rental: r, art, onAction, claims = [], onDispute }: { rental: Rental; art?: Product; onAction: (k: "repair" | "extend" | "return" | "cancel") => void; claims?: Claim[]; onDispute?: (c: Claim) => void }) {
   const live = r.phase === "Active" || r.phase === "Plan ended";
   const interactive = r.phase !== "Returned" && r.phase !== "Cancelled";
   return (
@@ -242,6 +249,10 @@ function RentalCard({ rental: r, art, onAction }: { rental: Rental; art?: Produc
             </p>
           )}
           {r.extensions.length > 0 && <p className="mt-2 text-xs text-ink-soft">Extended {r.extensions.length} {r.extensions.length === 1 ? "time" : "times"}.</p>}
+
+          {r.phase === "Returned" && (
+            <RefundBlock rental={r} claims={claims} onDispute={onDispute} />
+          )}
         </div>
       </div>
 
@@ -261,6 +272,59 @@ function RentalCard({ rental: r, art, onAction }: { rental: Rental; art?: Produc
         </div>
       )}
     </motion.article>
+  );
+}
+
+const claimTone = { Charged: "text-[#7a5200]", Disputed: "text-coral-deep", Upheld: "text-ink", Waived: "text-forest" } as const;
+
+function RefundBlock({ rental: r, claims, onDispute }: { rental: Rental; claims: Claim[]; onDispute?: (c: Claim) => void }) {
+  const { refund, deducted, onHold } = refundFor(r.deposit * r.qty, claims);
+  return (
+    <div className="mt-3 space-y-2 rounded-2xl bg-sand px-4 py-3 text-sm">
+      <p className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-semibold">Deposit refund</span>
+        <span className="font-bold text-forest">{inr(refund)}{onHold > 0 && <span className="ml-1 text-xs font-medium text-coral-deep">({inr(onHold)} on hold)</span>}</span>
+      </p>
+      {deducted === 0 && onHold === 0 && claims.length === 0 && <p className="text-xs text-ink-soft">Returned in good condition. Your full deposit of {inr(r.deposit * r.qty)} is on its way.</p>}
+      {claims.map((c) => (
+        <div key={c.id} className="rounded-xl bg-paper px-3 py-2">
+          <p className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-semibold">Damage charge {inr(c.amount)}</span>
+            <span className={`font-bold ${claimTone[c.status]}`}>{c.status}</span>
+          </p>
+          <p className="mt-0.5 text-xs text-ink-soft">{c.note}</p>
+          {c.disputeMessage && <p className="mt-1 text-xs text-ink-soft">You said: {c.disputeMessage}</p>}
+          {c.resolutionNote && <p className="mt-1 text-xs font-medium text-forest">Our decision: {c.resolutionNote}</p>}
+          {c.status === "Charged" && onDispute && <button onClick={() => onDispute(c)} className="mt-2 rounded-full border border-line px-3 py-1 text-xs font-semibold hover:border-coral hover:text-coral-deep">Dispute this charge</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DisputeForm({ claim, onDone }: { claim: Claim; onDone: () => void }) {
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const { ok, data } = await api(`/api/claims/${claim.id}/dispute`, "POST", { message });
+    if (ok) return onDone();
+    setError(data.error ?? "Could not send your dispute.");
+    setBusy(false);
+  }
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <p className="text-sm text-ink-soft">{claim.productName}: {inr(claim.amount)} for <span className="font-semibold text-ink">{claim.note}</span>. Tell us why you disagree. The amount stays on hold while our team reviews it.</p>
+      <label className="block text-sm font-semibold">Your reason
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} maxLength={500} className="mt-1.5 w-full rounded-2xl border border-line bg-paper px-4 py-3 font-normal outline-none focus:border-moss" />
+      </label>
+      <FormError message={error} />
+      <Submit busy={busy}>Send dispute</Submit>
+    </form>
   );
 }
 

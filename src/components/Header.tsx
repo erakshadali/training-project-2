@@ -7,7 +7,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MapPin, Menu, ShoppingBag, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import { cities, type City } from "@/data/config";
+import { useCatalog } from "@/context/CatalogContext";
+import type { City } from "@/data/config";
 
 const links = [
   { href: "/products", label: "Shop all" },
@@ -41,6 +42,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { areas: cities } = useCatalog();
   const [open, setOpen] = useState(false);
 
   return (
@@ -82,6 +84,11 @@ export function Header() {
 
           {user ? (
             <>
+              {user.role === "admin" && (
+                <Link href="/admin" className="hidden rounded-full bg-sun/30 px-3.5 py-2 text-sm font-semibold text-[#7a5200] transition hover:bg-sun/50 sm:block">
+                  Admin
+                </Link>
+              )}
               <Link href="/account" className="hidden rounded-full px-3.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-sand sm:block">
                 {user.name.split(" ")[0]}&apos;s rentals
               </Link>
@@ -155,6 +162,11 @@ export function Header() {
               ))}
               {user ? (
                 <>
+                  {user.role === "admin" && (
+                    <Link href="/admin" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-semibold text-[#7a5200] hover:bg-sand">
+                      Admin dashboard
+                    </Link>
+                  )}
                   <Link href="/account" onClick={() => setOpen(false)} className="rounded-xl px-3 py-3 font-medium hover:bg-sand">
                     My rentals
                   </Link>

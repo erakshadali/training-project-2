@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { connectDb } from "@/lib/db";
 import { fail, getSessionUser, json } from "@/lib/auth";
-import { cities } from "@/data/config";
 import { addDays, monthlyRent, toISODate } from "@/lib/pricing";
 import { newOrderId } from "@/lib/orders";
 import { serialize } from "@/lib/serializeOrder";
 import { ensureRentals } from "@/lib/rentalsServer";
 import { toProduct } from "@/lib/catalog";
-import { OrderModel, ProductModel } from "@/models";
+import { OrderModel, ProductModel, ServiceAreaModel } from "@/models";
 
 const slots = ["9 AM to 12 PM", "12 PM to 3 PM", "3 PM to 6 PM"] as const;
 const payments = { cod: "Pay at delivery", upi: "UPI link" } as const;
@@ -17,7 +16,7 @@ const schema = z.object({
   phone: z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a 10 digit Indian mobile number"),
   email: z.email("Enter a valid email").max(120),
   address: z.string().trim().min(10, "Add your flat, building and area").max(300),
-  city: z.enum(cities),
+  city: z.string().trim().min(2).max(60),
   pincode: z.string().trim().regex(/^\d{6}$/, "Enter a 6 digit pincode"),
   deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a delivery date"),
   slot: z.enum(slots),
@@ -56,6 +55,9 @@ export async function POST(req: Request) {
   }
 
   await connectDb();
+  if (!(await ServiceAreaModel.exists({ name: data.city, active: true }))) {
+    return fail("We do not deliver to that city yet.", 400, { city: "Pick one of our service cities" });
+  }
 
   // Merge duplicate lines, then price every line from the database, never from the client.
   const merged = new Map<string, { months: 3 | 6 | 12; qty: number }>();

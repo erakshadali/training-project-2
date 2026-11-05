@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { products as seedProducts } from "@/data/products";
-import { ProductModel, UserModel } from "@/models";
+import { defaultCities } from "@/data/config";
+import { ProductModel, ServiceAreaModel, UserModel } from "@/models";
 
 /** Fills an empty database with the catalog and, when configured, an admin account. */
 export async function seedIfEmpty() {
@@ -24,6 +25,10 @@ export async function seedIfEmpty() {
         stock: p.stock,
       })),
     );
+  }
+
+  if ((await ServiceAreaModel.estimatedDocumentCount()) === 0) {
+    await ServiceAreaModel.insertMany(defaultCities.map((name) => ({ name, active: true })));
   }
 
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();

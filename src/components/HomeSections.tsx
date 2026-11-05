@@ -9,12 +9,13 @@ import { ProductCard } from "@/components/ProductCard";
 import { Counter, Reveal } from "@/components/motion";
 import { categories } from "@/data/products";
 import { useCatalog } from "@/context/CatalogContext";
-import { cities, tenures } from "@/data/config";
+import { tenures } from "@/data/config";
 import { inr } from "@/lib/pricing";
 import { useCart } from "@/context/CartContext";
 
 export function Hero() {
   const { city } = useCart();
+  const { areas: cities } = useCatalog();
   return (
     <section className="relative overflow-hidden bg-forest text-white">
       <div className="grain absolute inset-0 opacity-20" aria-hidden />
@@ -348,7 +349,7 @@ export function RentVsBuy() {
 }
 
 export function Benefits() {
-  const { products } = useCatalog();
+  const { products, areas: cities } = useCatalog();
   const items = [
     { icon: Truck, title: "Free delivery and setup", text: "Assembled and installed at your door at no cost." },
     { icon: Wrench, title: "Free maintenance", text: "Raise a request in your account and we fix or replace the item." },

@@ -1,4 +1,4 @@
-export const cities = [
+export const defaultCities = [
   "Noida",
   "Delhi",
   "Gurugram",
@@ -9,7 +9,8 @@ export const cities = [
   "Hyderabad",
 ] as const;
 
-export type City = (typeof cities)[number];
+/** Service areas are stored in the database; this list only seeds a fresh one. */
+export type City = string;
 
 export const tenures = [
   { months: 3, discount: 0, label: "3 months" },

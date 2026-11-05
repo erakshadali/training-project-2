@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { cities, type City, type TenureMonths } from "@/data/config";
+import type { City, TenureMonths } from "@/data/config";
 import { useCatalog } from "@/context/CatalogContext";
 import { lineTotals, type CartLine } from "@/lib/pricing";
 
@@ -46,7 +46,7 @@ function write(key: string, value: unknown) {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { getProductById } = useCatalog();
+  const { getProductById, areas } = useCatalog();
   const [lines, setLines] = useState<CartLine[]>([]);
   const [city, setCityState] = useState<City>("Noida");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -57,9 +57,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const savedCity = read<string>(CITY_KEY, "Noida");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate from localStorage once on mount
     setLines(saved);
-    if ((cities as readonly string[]).includes(savedCity)) setCityState(savedCity as City);
+    if (areas.includes(savedCity)) setCityState(savedCity);
+    else if (areas.length) setCityState(areas[0]);
     setReady(true);
-  }, [getProductById]);
+  }, [getProductById, areas]);
 
   useEffect(() => {
     if (ready) write(CART_KEY, lines);

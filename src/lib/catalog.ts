@@ -1,5 +1,5 @@
 import { connectDb } from "@/lib/db";
-import { ProductModel } from "@/models";
+import { ProductModel, ServiceAreaModel } from "@/models";
 import type { ArtKind, Category, Product } from "@/data/products";
 
 type Lean = {
@@ -50,4 +50,11 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   await connectDb();
   const d = await ProductModel.findOne({ slug, active: { $ne: false } }).lean();
   return d ? toProduct(d as unknown as Lean) : null;
+}
+
+/** Names of the cities we currently deliver to. */
+export async function getActiveAreas(): Promise<string[]> {
+  await connectDb();
+  const docs = await ServiceAreaModel.find({ active: true }).sort({ name: 1 }).lean();
+  return docs.map((d) => d.name);
 }

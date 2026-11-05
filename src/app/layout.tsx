@@ -8,7 +8,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { getSessionUser } from "@/lib/auth";
-import { getAllProducts } from "@/lib/catalog";
+import { getActiveAreas, getAllProducts } from "@/lib/catalog";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -38,12 +38,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [products, user] = await Promise.all([getAllProducts(), getSessionUser()]);
+  const [products, areas, user] = await Promise.all([getAllProducts(), getActiveAreas(), getSessionUser()]);
   return (
     <html lang="en" className={`${jakarta.variable} ${fraunces.variable}`}>
       <body className="min-h-screen flex flex-col">
         <AuthProvider initialUser={user}>
-          <CatalogProvider products={products}>
+          <CatalogProvider products={products} areas={areas}>
             <CartProvider>
               <Header />
               <main className="flex-1">{children}</main>

@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   // Same message for unknown email and wrong password so accounts cannot be probed.
   const ok = user ? await bcrypt.compare(parsed.data.password, user.passwordHash) : false;
   if (!user || !ok) return fail("Incorrect email or password.", 401);
+  if (user.disabled) return fail("This account has been suspended. Please contact support.", 403);
 
   await createSession(String(user._id));
   return json({ user: { id: String(user._id), name: user.name, email: user.email, phone: user.phone ?? "", role: user.role } });

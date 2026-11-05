@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Logo } from "@/components/Header";
-import { cities } from "@/data/config";
+import { getActiveAreas } from "@/lib/catalog";
 
-export function Footer() {
+export async function Footer() {
+  const cities = await getActiveAreas();
   return (
     <footer className="mt-24 bg-forest-deep text-white/80">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">

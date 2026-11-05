@@ -1,6 +1,11 @@
 import mongoose, { Schema, type Model, type Types } from "mongoose";
 
-export interface ProductDoc {
+interface Stamped {
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ProductDoc extends Stamped {
   pid: string;
   slug: string;
   name: string;
@@ -19,12 +24,13 @@ export interface ProductDoc {
   active: boolean;
 }
 
-export interface UserDoc {
+export interface UserDoc extends Stamped {
   name: string;
   email: string;
   phone: string;
   passwordHash: string;
   role: "user" | "admin";
+  disabled: boolean;
 }
 
 export interface OrderLineDoc {
@@ -36,7 +42,7 @@ export interface OrderLineDoc {
   deposit: number;
 }
 
-export interface OrderDoc {
+export interface OrderDoc extends Stamped {
   orderId: string;
   userId: Types.ObjectId;
   name: string;
@@ -56,7 +62,7 @@ export interface OrderDoc {
 
 export type RentalStatus = "Scheduled" | "Return scheduled" | "Returned" | "Cancelled";
 
-export interface RentalDoc {
+export interface RentalDoc extends Stamped {
   rentalId: string;
   orderId: string;
   userId: Types.ObjectId;
@@ -71,9 +77,31 @@ export interface RentalDoc {
   status: RentalStatus;
   extensions: { addedMonths: number; rentPerMonth: number; at: Date }[];
   returnRequest?: { date: string; slot: string; earlyClosureFee: number; requestedAt: Date } | null;
+  deliveredAt?: Date | null;
+  returnedAt?: Date | null;
 }
 
-export interface MaintenanceDoc {
+export type ClaimStatus = "Charged" | "Disputed" | "Upheld" | "Waived";
+
+export interface ClaimDoc extends Stamped {
+  claimId: string;
+  rentalId: string;
+  userId: Types.ObjectId;
+  productName: string;
+  amount: number;
+  note: string;
+  status: ClaimStatus;
+  disputeMessage: string;
+  resolutionNote: string;
+  resolvedAt?: Date | null;
+}
+
+export interface ServiceAreaDoc {
+  name: string;
+  active: boolean;
+}
+
+export interface MaintenanceDoc extends Stamped {
   requestId: string;
   userId: Types.ObjectId;
   rentalId: string;
@@ -114,6 +142,7 @@ const userSchema = new Schema<UserDoc>(
     phone: { type: String, default: "" },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    disabled: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -167,6 +196,8 @@ const rentalSchema = new Schema<RentalDoc>(
     status: { type: String, enum: ["Scheduled", "Return scheduled", "Returned", "Cancelled"], default: "Scheduled" },
     extensions: { type: [{ addedMonths: Number, rentPerMonth: Number, at: Date }], default: [] },
     returnRequest: { type: { date: String, slot: String, earlyClosureFee: Number, requestedAt: Date }, default: null },
+    deliveredAt: { type: Date, default: null },
+    returnedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
@@ -187,6 +218,27 @@ const maintenanceSchema = new Schema<MaintenanceDoc>(
   { timestamps: true },
 );
 
+const claimSchema = new Schema<ClaimDoc>(
+  {
+    claimId: { type: String, required: true, unique: true },
+    rentalId: { type: String, required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    productName: { type: String, required: true },
+    amount: { type: Number, required: true, min: 0 },
+    note: { type: String, required: true },
+    status: { type: String, enum: ["Charged", "Disputed", "Upheld", "Waived"], default: "Charged" },
+    disputeMessage: { type: String, default: "" },
+    resolutionNote: { type: String, default: "" },
+    resolvedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+
+const serviceAreaSchema = new Schema<ServiceAreaDoc>({
+  name: { type: String, required: true, unique: true, trim: true },
+  active: { type: Boolean, default: true },
+});
+
 function model<T>(name: string, schema: Schema<T>): Model<T> {
   return (mongoose.models[name] as Model<T> | undefined) ?? mongoose.model<T>(name, schema);
 }
@@ -196,3 +248,5 @@ export const UserModel = model<UserDoc>("User", userSchema);
 export const OrderModel = model<OrderDoc>("Order", orderSchema);
 export const RentalModel = model<RentalDoc>("Rental", rentalSchema);
 export const MaintenanceModel = model<MaintenanceDoc>("Maintenance", maintenanceSchema);
+export const ClaimModel = model<ClaimDoc>("Claim", claimSchema);
+export const ServiceAreaModel = model<ServiceAreaDoc>("ServiceArea", serviceAreaSchema);
