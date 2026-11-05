@@ -42,6 +42,17 @@ describe("readRoomColors", () => {
   }
   const quad = [{ x: 20, y: 45 }, { x: 80, y: 45 }, { x: 95, y: 95 }, { x: 5, y: 95 }];
 
+  it("reads the wall in front of the camera, not the ceiling above it", () => {
+    // dark ceiling on the top 25 rows, light wall on rows 25 to 39, floor below
+    const d = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const px: RGB = y < 25 ? [60, 40, 30] : y < 40 ? [235, 232, 222] : [150, 100, 60];
+      d[i] = px[0]; d[i + 1] = px[1]; d[i + 2] = px[2]; d[i + 3] = 255;
+    }
+    expect(readRoomColors(d, W, H, quad).wall).toEqual([235, 232, 222]);
+  });
+
   it("reads the floor from inside the marked quad and the wall from above it", () => {
     const { floor, wall } = readRoomColors(data, W, H, quad);
     expect(floor).toEqual([150, 100, 60]);

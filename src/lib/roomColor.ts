@@ -82,15 +82,25 @@ export function readRoomColors(data: Uint8ClampedArray | number[], width: number
   const floorPx: RGB[] = [];
   const wallPx: RGB[] = [];
   const backY = Math.min(quad[0].y, quad[1].y);
+  // The wall is read from a band just above the back edge and between the two back corners, so the ceiling,
+  // lights, fans and side walls do not pull the colour away from the wall in front of the camera.
+  const bandTop = Math.max(0, backY - 0.22 * height);
+  const left = Math.min(quad[0].x, quad[1].x), right = Math.max(quad[0].x, quad[1].x);
   const step = Math.max(2, Math.floor(Math.min(width, height) / 90));
+  const aboveFloor: RGB[] = [];
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const i = (y * width + x) * 4;
       const px: RGB = [data[i], data[i + 1], data[i + 2]];
       if (pointInQuad({ x, y }, quad)) floorPx.push(px);
-      else if (y < backY - 4) wallPx.push(px);
+      else if (y < backY - 4) {
+        aboveFloor.push(px);
+        if (y >= bandTop && x >= left && x <= right) wallPx.push(px);
+      }
     }
   }
+  // A very narrow or very high back edge can leave the band empty. Fall back to everything above the floor.
+  if (wallPx.length < 12) wallPx.push(...aboveFloor);
   const pick = (px: RGB[], fallback: RGB): RGB => (px.length ? [median(px.map((p) => p[0])), median(px.map((p) => p[1])), median(px.map((p) => p[2]))] : fallback);
   return { floor: pick(floorPx, [150, 150, 150]), wall: pick(wallPx, [225, 225, 225]) };
 }
