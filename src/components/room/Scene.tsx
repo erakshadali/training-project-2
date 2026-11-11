@@ -2,6 +2,7 @@
 
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { Product } from "@/data/products";
 import { dimsFor } from "@/lib/roomDims";
 import { photoSize, ROOM_PHOTOS } from "@/lib/roomPhotos";
@@ -30,6 +31,8 @@ type Props = {
   usePhotos?: boolean;
   onSelect: (id: string | null) => void;
   onMove: (id: string, x: number, z: number) => void;
+  /** Called once when a drag of a piece begins, so the editor can record an undo step. */
+  onDragStart?: (id: string) => void;
   /** Receives { exportPng }. A prop, not a ref, so the component can be loaded lazily. */
   handleRef?: React.Ref<SceneHandle>;
 };
@@ -42,8 +45,23 @@ type Live = {
   sun: THREE.DirectionalLight;
   models: Map<string, { group: THREE.Group; pid: string; kind: "model" | "photo" }>;
   outline: THREE.Group;
+  /** A soft round shadow texture shared by every model, drawn under it on the floor. */
+  shadeTex: THREE.CanvasTexture;
   render: () => void;
 };
+
+/** A soft dark blob that fades out to nothing at the edge, used as a contact shadow. */
+function makeShadeTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d")!;
+  const grad = g.createRadialGradient(32, 32, 4, 32, 32, 32);
+  grad.addColorStop(0, "rgba(0,0,0,0.5)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
 
 /** The 3D layer drawn on top of the room photo. It uses the camera recovered from the floor corners. */
 export function Scene(props: Props) {
@@ -110,7 +128,14 @@ export function Scene(props: Props) {
     camera.matrixWorldNeedsUpdate = true;
     camera.updateMatrixWorld(true);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xb8a890, 0.9);
+    // A soft studio environment gives metal, glass and screens something to reflect, so appliances stop looking flat.
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    scene.environment = envMap;
+    scene.environmentIntensity = 0.4;
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xb8a890, 0.62);
     scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xffffff, 1.05);
     sun.castShadow = true;
@@ -141,7 +166,8 @@ export function Scene(props: Props) {
         draw();
       });
     };
-    const l: Live = { renderer, scene, camera, hemi, sun, models: new Map(), outline, render: draw };
+    const shadeTex = makeShadeTexture();
+    const l: Live = { renderer, scene, camera, hemi, sun, models: new Map(), outline, shadeTex, render: draw };
     live.current = l;
     const request = render;
 
@@ -181,6 +207,7 @@ export function Scene(props: Props) {
       if (!id) return;
       const g = l.models.get(id)!.group;
       if (ray.ray.intersectPlane(floorPlane, hitPoint)) {
+        latest.current.onDragStart?.(id);
         drag = { id, offX: hitPoint.x - g.position.x, offZ: hitPoint.z - g.position.z };
         renderer.domElement.setPointerCapture(e.pointerId);
         renderer.domElement.style.cursor = "grabbing";
@@ -214,6 +241,8 @@ export function Scene(props: Props) {
       disposeModel(outline);
       catcher.geometry.dispose();
       (catcher.material as THREE.Material).dispose();
+      shadeTex.dispose();
+      envMap.dispose();
       renderer.dispose();
       host.removeChild(renderer.domElement);
       live.current = null;
@@ -291,6 +320,14 @@ export function Scene(props: Props) {
           if (!dims.lift) group.add(sh);
         } else {
           group.add(buildModel(product.art, product.tint, dims));
+          // a soft contact shadow so the piece sits on the floor instead of floating on it
+          if (!dims.lift && !dims.flat) {
+            const sh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: l.shadeTex, transparent: true, depthWrite: false, opacity: 0.8 }));
+            sh.rotation.x = -Math.PI / 2;
+            sh.position.y = 0.012;
+            sh.scale.set(dims.w * 1.12, dims.d * 1.15, 1);
+            group.add(sh);
+          }
         }
         l.scene.add(group);
         m = { group, pid: it.pid, kind: want };
@@ -353,7 +390,8 @@ export function Scene(props: Props) {
       l.outline.rotation.y = sel.rot;
     }
 
-    l.hemi.intensity = 0.9 * brightness;
+    l.hemi.intensity = 0.62 * brightness;
+    l.scene.environmentIntensity = 0.4 * brightness;
     l.sun.intensity = 1.05 * brightness;
     const a = (lightAngle * Math.PI) / 180;
     l.sun.position.set(W / 2 + Math.cos(a) * 14, 18, D / 2 + Math.sin(a) * 14);

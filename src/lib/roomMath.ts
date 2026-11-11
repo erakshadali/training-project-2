@@ -219,3 +219,58 @@ export function clampInside(fp: Footprint, W: number, D: number): Footprint {
     z: Math.min(Math.max(fp.z, halfZ), Math.max(halfZ, D - halfZ)),
   };
 }
+
+/* ------------------------------ dragging magnet ------------------------------ */
+
+/** Half the width and depth of a rotated footprint's bounding box, measured along the X and Z axes. */
+export function halfExtents(fp: Footprint): { hx: number; hz: number } {
+  const pts = footprintCorners(fp);
+  const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+  return { hx: (Math.max(...xs) - Math.min(...xs)) / 2, hz: (Math.max(...zs) - Math.min(...zs)) / 2 };
+}
+
+export type Snap = { x: number; z: number; xBy: "wall" | "piece" | null; zBy: "wall" | "piece" | null };
+
+type Candidate = { to: number; by: "wall" | "piece" };
+
+/** The closest candidate within the threshold. A wall wins a near tie, because flush against a wall feels right. */
+function pick(cands: Candidate[], at: number, threshold: number): Candidate | null {
+  let best: Candidate | null = null;
+  let bestScore = Infinity;
+  for (const c of cands) {
+    const dist = Math.abs(c.to - at);
+    if (dist > threshold) continue;
+    const score = dist - (c.by === "wall" ? 0.06 : 0);
+    if (score < bestScore) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/**
+ * A soft magnet for dragging a piece. When one of its edges comes within `threshold` feet of a wall, or of the edge of
+ * another piece it is level with, it is pulled flush. It also lines up centres with the room and with other pieces.
+ * Works on the axis-aligned box of the piece, so it is exact for pieces turned in quarter turns and approximate otherwise.
+ * `others` should hold only the pieces that take floor space.
+ */
+export function snapMove(fp: Footprint, others: Footprint[], W: number, D: number, threshold = 0.4): Snap {
+  if (threshold <= 0) return { x: fp.x, z: fp.z, xBy: null, zBy: null };
+  const { hx, hz } = halfExtents(fp);
+  const xs: Candidate[] = [{ to: hx, by: "wall" }, { to: W - hx, by: "wall" }, { to: W / 2, by: "wall" }];
+  const zs: Candidate[] = [{ to: hz, by: "wall" }, { to: D - hz, by: "wall" }];
+  for (const o of others) {
+    const e = halfExtents(o);
+    // beside another piece: only when the two are level with each other, so a far-away piece never pulls on this one
+    if (Math.abs(fp.z - o.z) < hz + e.hz + 0.6) {
+      xs.push({ to: o.x + e.hx + hx, by: "piece" }, { to: o.x - e.hx - hx, by: "piece" }, { to: o.x - e.hx + hx, by: "piece" }, { to: o.x + e.hx - hx, by: "piece" }, { to: o.x, by: "piece" });
+    }
+    if (Math.abs(fp.x - o.x) < hx + e.hx + 0.6) {
+      zs.push({ to: o.z + e.hz + hz, by: "piece" }, { to: o.z - e.hz - hz, by: "piece" }, { to: o.z - e.hz + hz, by: "piece" }, { to: o.z + e.hz - hz, by: "piece" }, { to: o.z, by: "piece" });
+    }
+  }
+  const sx = pick(xs, fp.x, threshold);
+  const sz = pick(zs, fp.z, threshold);
+  return { x: sx ? sx.to : fp.x, z: sz ? sz.to : fp.z, xBy: sx ? sx.by : null, zBy: sz ? sz.by : null };
+}

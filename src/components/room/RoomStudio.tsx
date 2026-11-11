@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Coffee, Frame, LampFloor, Maximize2, Minimize2, RectangleHorizontal, Save, Sprout } from "lucide-react";
-import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Wand2 } from "lucide-react";
+import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, Magnet, Redo2, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Undo2, Wand2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import dynamic from "next/dynamic";
 import type { Problem, RoomItem, SceneHandle } from "@/components/room/Scene";
@@ -19,7 +19,7 @@ import { inr, monthlyRent } from "@/lib/pricing";
 import { colorName, crowding, readRoomColors, rgbToHex, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
 import { DECOR, decorProducts, isDecorId, type DecorKind } from "@/lib/roomDecor";
 import { dimsFor, isWallMounted, takesNoFloor } from "@/lib/roomDims";
-import { calibrateFloor, clampInside, outsideBy, overlaps, type Calibration, type Pt } from "@/lib/roomMath";
+import { calibrateFloor, clampInside, outsideBy, overlaps, snapMove, type Calibration, type Pt } from "@/lib/roomMath";
 import { makeSampleRoom } from "@/lib/sampleRoom";
 
 // Three.js is only downloaded when the studio opens, so the start screen stays light.
@@ -148,6 +148,13 @@ export function RoomStudio() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
   const sceneRef = useRef<SceneHandle>(null);
+  const [snapOn, setSnapOn] = useState(true);
+  // Undo and redo keep whole snapshots of the furniture list. The refs hold them; the counts drive the buttons.
+  const itemsRef = useRef<RoomItem[]>([]);
+  const pastRef = useRef<RoomItem[][]>([]);
+  const futureRef = useRef<RoomItem[][]>([]);
+  const lastAngleAt = useRef(0);
+  const [hist, setHist] = useState({ past: 0, future: 0 });
 
   const Wn = Math.max(0, Number(W) || 0), Dn = Math.max(0, Number(D) || 0);
 
@@ -155,6 +162,45 @@ export function RoomStudio() {
     setToast(m);
     window.setTimeout(() => setToast(""), 3500);
   }, []);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  });
+
+  const syncHist = useCallback(() => setHist({ past: pastRef.current.length, future: futureRef.current.length }), []);
+
+  /** Call just before a change so it can be undone. A new change clears the redo steps. */
+  const record = useCallback(() => {
+    pastRef.current = [...pastRef.current.slice(-49), itemsRef.current];
+    futureRef.current = [];
+    syncHist();
+  }, [syncHist]);
+
+  const resetHistory = useCallback(() => {
+    pastRef.current = [];
+    futureRef.current = [];
+    syncHist();
+  }, [syncHist]);
+
+  const undo = useCallback(() => {
+    const prev = pastRef.current[pastRef.current.length - 1];
+    if (!prev) return;
+    pastRef.current = pastRef.current.slice(0, -1);
+    futureRef.current = [...futureRef.current, itemsRef.current];
+    setItems(prev);
+    setSelectedId((s) => (prev.some((i) => i.id === s) ? s : null));
+    syncHist();
+  }, [syncHist]);
+
+  const redo = useCallback(() => {
+    const next = futureRef.current[futureRef.current.length - 1];
+    if (!next) return;
+    futureRef.current = futureRef.current.slice(0, -1);
+    pastRef.current = [...pastRef.current, itemsRef.current];
+    setItems(next);
+    setSelectedId((s) => (next.some((i) => i.id === s) ? s : null));
+    syncHist();
+  }, [syncHist]);
 
   /* ----------------------------- step 1: photo ----------------------------- */
 
@@ -207,6 +253,7 @@ export function RoomStudio() {
     setColors(await readColorsFromPhoto(photo, quad));
     setCal(liveCal);
     setItems([]);
+    resetHistory();
     setSelectedId(null);
     setTab("furniture");
     setBusy(false);
@@ -246,12 +293,13 @@ export function RoomStudio() {
     setColors(await readColorsFromPhoto(ph, s.quad));
     setCal(nextCal);
     setItems(s.items.filter((i) => ids.has(i.pid)).map((i) => ({ id: newId(), ...i })));
+    resetHistory();
     setSelectedId(null);
     setTab("furniture");
     setSavedId(id);
     setSaveName(name);
     setStage("studio");
-  }, [allPieces]);
+  }, [allPieces, resetHistory]);
 
   // After logging in from the save panel, bring back the room the customer was working on.
   useEffect(() => {
@@ -390,6 +438,7 @@ export function RoomStudio() {
   }, [footprint, Wn, Dn]);
 
   const place = useCallback((p: Product) => {
+    record();
     setItems((cur) => {
       const spot = findSpot(p, cur);
       const item: RoomItem = { id: newId(), pid: p.id, ...spot };
@@ -397,10 +446,11 @@ export function RoomStudio() {
       return [...cur, item];
     });
     say(`${p.name} added. Drag it in the photo, or use the Arrange box to place it exactly.`);
-  }, [findSpot, say]);
+  }, [findSpot, say, record]);
 
   function autoFurnish() {
     if (!scored.length) return;
+    record();
     const pickBest = (kind: string) => scored.filter((s) => s.p.art === kind && s.fit.status !== "Too big").sort((a, b) => b.rank - a.rank)[0];
     const tv = pickBest("tv"), sofa = pickBest("sofa"), shelf = pickBest("shelf");
     const table = Wn * Dn >= 130 ? pickBest("dining") : pickBest("desk");
@@ -457,32 +507,44 @@ export function RoomStudio() {
     say(`Furnished your hall with ${cur.length} pieces picked for its size and colours.`);
   }
 
-  const move = useCallback((id: string, x: number, z: number) => {
-    setItems((cur) => cur.map((it) => {
-      if (it.id !== id) return it;
-      const fp = footprint(it);
+  /** Dragging in the photo. With Snap on, the piece is pulled flush to walls and to the edges of pieces beside it. */
+  const dragMove = useCallback((id: string, x: number, z: number) => {
+    setItems((cur) => {
+      const me = cur.find((i) => i.id === id);
+      if (!me) return cur;
+      const fp = footprint(me);
       const c = clampInside({ ...fp, x, z }, Wn, Dn);
-      return { ...it, x: c.x, z: c.z };
-    }));
-  }, [footprint, Wn, Dn]);
+      let nx = c.x, nz = c.z;
+      if (snapOn) {
+        const others = fp.wall ? [] : cur.filter((o) => o.id !== id).map(footprint).filter((f) => !f.wall);
+        const sn = snapMove(c, others, Wn, Dn, 0.4);
+        const back = clampInside({ ...c, x: sn.x, z: sn.z }, Wn, Dn);
+        nx = back.x;
+        nz = back.z;
+      }
+      return cur.map((it) => (it.id === id ? { ...it, x: nx, z: nz } : it));
+    });
+  }, [footprint, Wn, Dn, snapOn]);
 
   const rotate = useCallback((id: string, delta: number) => {
+    record();
     setItems((cur) => cur.map((it) => {
       if (it.id !== id) return it;
       const rot = it.rot + delta;
       const c = clampInside({ ...footprint(it), rot }, Wn, Dn);
       return { ...it, rot, x: c.x, z: c.z };
     }));
-  }, [footprint, Wn, Dn]);
+  }, [footprint, Wn, Dn, record]);
 
   /** Move a piece by a step in screen directions: right/left along the back wall, closer/farther from the camera. */
-  const nudge = useCallback((id: string, dx: number, dz: number) => {
+  const nudge = useCallback((id: string, dx: number, dz: number, keep = false) => {
+    if (!keep) record();
     setItems((cur) => cur.map((it) => {
       if (it.id !== id) return it;
       const c = clampInside({ ...footprint(it), x: it.x + dx, z: it.z + dz }, Wn, Dn);
       return { ...it, x: c.x, z: c.z };
     }));
-  }, [footprint, Wn, Dn]);
+  }, [footprint, Wn, Dn, record]);
 
   const setAngle = useCallback((id: string, deg: number) => {
     setItems((cur) => cur.map((it) => {
@@ -495,6 +557,7 @@ export function RoomStudio() {
 
   /** Push a piece against a wall (facing into the room) or put it in the middle. */
   const snapTo = useCallback((id: string, where: "back" | "left" | "right" | "centre") => {
+    record();
     setItems((cur) => cur.map((it) => {
       if (it.id !== id) return it;
       const pose =
@@ -505,20 +568,23 @@ export function RoomStudio() {
       const c = clampInside({ ...footprint(it), ...pose }, Wn, Dn);
       return { ...it, x: c.x, z: c.z, rot: pose.rot };
     }));
-  }, [footprint, Wn, Dn]);
+  }, [footprint, Wn, Dn, record]);
 
   const remove = useCallback((id: string) => {
+    record();
     setItems((cur) => cur.filter((it) => it.id !== id));
     setSelectedId((s) => (s === id ? null : s));
-  }, []);
+  }, [record]);
 
   const clearAll = useCallback(() => {
+    record();
     setItems([]);
     setSelectedId(null);
-    say("Removed every piece. The room is empty again.");
-  }, [say]);
+    say("Removed every piece. You can bring them back with Undo.");
+  }, [say, record]);
 
   const duplicate = useCallback((id: string) => {
+    record();
     setItems((cur) => {
       const src = cur.find((i) => i.id === id);
       const p = src && productById.get(src.pid);
@@ -528,7 +594,7 @@ export function RoomStudio() {
       setSelectedId(copy.id);
       return [...cur, copy];
     });
-  }, [findSpot, productById]);
+  }, [findSpot, productById, record]);
 
   // Keyboard shortcuts: Delete removes, R rotates, arrows nudge.
   useEffect(() => {
@@ -540,15 +606,35 @@ export function RoomStudio() {
       if (!it) return;
       if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); remove(selectedId); }
       else if (e.key.toLowerCase() === "r") rotate(selectedId, e.shiftKey ? -Math.PI / 12 : Math.PI / 12);
-      else if (e.key === "ArrowLeft") { e.preventDefault(); move(selectedId, it.x - 0.25, it.z); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); move(selectedId, it.x + 0.25, it.z); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); move(selectedId, it.x, it.z - 0.25); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); move(selectedId, it.x, it.z + 0.25); }
+      else if (e.key.startsWith("Arrow")) {
+        e.preventDefault();
+        const now = Date.now();
+        const keep = now - lastAngleAt.current < 600; // a burst of key presses is one undo step
+        lastAngleAt.current = now;
+        const dx = e.key === "ArrowLeft" ? -0.25 : e.key === "ArrowRight" ? 0.25 : 0;
+        const dz = e.key === "ArrowUp" ? -0.25 : e.key === "ArrowDown" ? 0.25 : 0;
+        nudge(selectedId, dx, dz, keep);
+      }
       else if (e.key === "Escape") setSelectedId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stage, selectedId, items, remove, rotate, move]);
+  }, [stage, selectedId, items, remove, rotate, nudge]);
+
+  // Ctrl or Cmd + Z undoes, with Shift (or Ctrl + Y) it redoes.
+  useEffect(() => {
+    if (stage !== "studio") return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stage, undo, redo]);
 
   async function download() {
     const blob = await sceneRef.current?.exportPng();
@@ -674,6 +760,12 @@ export function RoomStudio() {
             <button onClick={() => setConfirmClear(true)} disabled={!items.length} className={`${tool} border border-line text-coral-deep hover:border-coral disabled:opacity-40`}><Trash2 className="h-4 w-4" /> Remove all</button>
           )}
 
+          <div className="flex shrink-0 items-center gap-1.5" role="group" aria-label="Undo, redo and snapping">
+            <button onClick={undo} disabled={!hist.past} aria-label="Undo" title="Undo (Ctrl+Z)" className={`${tool} border border-line text-moss hover:border-moss disabled:opacity-40`}><Undo2 className="h-4 w-4" /> Undo</button>
+            <button onClick={redo} disabled={!hist.future} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" className={`${tool} border border-line text-moss hover:border-moss disabled:opacity-40`}><Redo2 className="h-4 w-4" /> Redo</button>
+            <button onClick={() => setSnapOn((v) => !v)} aria-pressed={snapOn} title="Snap pieces to the walls and to each other while you drag" className={`${tool} border ${snapOn ? "border-forest bg-forest text-white" : "border-line text-moss hover:border-moss"}`}><Magnet className="h-4 w-4" /> Snap</button>
+          </div>
+
           <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap lg:ml-auto" role="group" aria-label="Look of the furniture">
             <span className="text-xs font-semibold text-ink-soft">Look</span>
             {([[true, "Photos"], [false, "3D"]] as [boolean, string][]).map(([v, l]) => (
@@ -694,12 +786,22 @@ export function RoomStudio() {
             >
               <div className="relative">
                 <button onClick={() => setBigPhoto((b) => !b)} aria-pressed={bigPhoto} aria-label={bigPhoto ? "Make the photo smaller" : "Make the photo bigger"} className="absolute bottom-2 right-2 z-10 grid h-9 w-9 place-items-center rounded-full bg-forest/85 text-white shadow-md lg:hidden">{bigPhoto ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>
+                {selected && selectedProduct && (
+                  <div role="toolbar" aria-label={`Quick actions for ${selectedProduct.name}`} className="absolute left-2 top-2 z-10 flex items-center gap-0.5 rounded-full bg-paper/95 p-1 shadow-md ring-1 ring-line">
+                    <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn left" title="Turn left" className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand"><RotateCcw className="h-4 w-4" /></button>
+                    <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn right" title="Turn right" className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand"><RotateCw className="h-4 w-4" /></button>
+                    <button onClick={() => duplicate(selected.id)} aria-label="Make a copy" title="Copy" className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand"><Copy className="h-4 w-4" /></button>
+                    <button onClick={() => remove(selected.id)} aria-label="Remove" title="Remove" className="grid h-9 w-9 place-items-center rounded-full text-coral-deep hover:bg-coral/10"><Trash2 className="h-4 w-4" /></button>
+                    <span className="mx-0.5 h-5 w-px bg-line" aria-hidden />
+                    <button onClick={undo} disabled={!hist.past} aria-label="Undo" title="Undo" className="grid h-9 w-9 place-items-center rounded-full hover:bg-sand disabled:opacity-40"><Undo2 className="h-4 w-4" /></button>
+                  </div>
+                )}
                 <Scene
                   handleRef={sceneRef}
                   photoUrl={photo.url} imgW={photo.w} imgH={photo.h} cal={cal} W={Wn} D={Dn}
                   items={items} selectedId={selectedId} products={allPieces} problems={problems}
                   brightness={brightness} lightAngle={lightAngle} usePhotos={usePhotos}
-                  onSelect={setSelectedId} onMove={move}
+                  onSelect={setSelectedId} onMove={dragMove} onDragStart={record}
                 />
                 {/* Numbered tags so every piece in the photo matches its row in the list */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
@@ -758,7 +860,7 @@ export function RoomStudio() {
                   </div>
                   <div className="mt-2 flex items-center gap-1.5">
                     <button onClick={() => rotate(selected.id, -Math.PI / 2)} aria-label="Turn 90 degrees left" className={iconBtn}><RotateCcw className="h-4 w-4" /></button>
-                    <input type="range" min={0} max={359} step={1} value={deg} onChange={(e) => setAngle(selected.id, Number(e.target.value))} aria-label={`Turn, ${deg} degrees`} className="min-w-0 flex-1 accent-[#c24424]" />
+                    <input type="range" min={0} max={359} step={1} value={deg} onPointerDown={() => { record(); lastAngleAt.current = Date.now(); }} onKeyDown={() => { const now = Date.now(); if (now - lastAngleAt.current > 600) record(); lastAngleAt.current = now; }} onChange={(e) => setAngle(selected.id, Number(e.target.value))} aria-label={`Turn, ${deg} degrees`} className="min-w-0 flex-1 accent-[#c24424]" />
                     <button onClick={() => rotate(selected.id, Math.PI / 2)} aria-label="Turn 90 degrees right" className={iconBtn}><RotateCw className="h-4 w-4" /></button>
                     <span className="w-10 shrink-0 text-right text-xs font-semibold text-ink-soft">{deg}°</span>
                   </div>

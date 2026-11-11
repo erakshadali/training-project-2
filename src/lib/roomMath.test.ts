@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calibrateFloor, clampInside, footprintCorners, outsideBy, overlaps, validQuad, type Pt, type V3 } from "@/lib/roomMath";
+import { calibrateFloor, clampInside, footprintCorners, outsideBy, overlaps, snapMove, validQuad, type Pt, type V3 } from "@/lib/roomMath";
 
 /* A ground-truth pinhole camera, built independently from the code under test. */
 function truthCamera(pos: V3, target: V3, imgW: number, imgH: number, hfovDeg: number) {
@@ -107,5 +107,53 @@ describe("footprints", () => {
     expect(outsideBy(fixed, W, D)).toBeCloseTo(0, 6);
     expect(fixed.x).toBeCloseTo(3, 6);
     expect(fixed.z).toBeCloseTo(D - 1.5, 6);
+  });
+});
+
+describe("snapMove (dragging magnet)", () => {
+  const sofa = { x: 6, z: 1.5, w: 6, d: 3, rot: 0 };
+
+  it("pulls a piece flush against the back wall when it is close", () => {
+    const s = snapMove({ ...sofa, z: 1.78 }, [], 14, 12);
+    expect(s.z).toBeCloseTo(1.5, 5);
+    expect(s.zBy).toBe("wall");
+  });
+
+  it("pulls against the side wall using the width when turned a quarter turn", () => {
+    // turned 90 degrees, a 6 x 3 sofa is 3 wide and 6 deep: its left edge is x - 1.5
+    const s = snapMove({ x: 1.7, z: 5, w: 6, d: 3, rot: Math.PI / 2 }, [], 14, 12);
+    expect(s.x).toBeCloseTo(1.5, 5);
+    expect(s.xBy).toBe("wall");
+  });
+
+  it("leaves a piece alone when it is far from every wall and piece", () => {
+    const s = snapMove({ x: 4, z: 6, w: 2, d: 2, rot: 0 }, [], 14, 12);
+    expect(s).toEqual({ x: 4, z: 6, xBy: null, zBy: null });
+  });
+
+  it("sits flush beside a piece it is level with", () => {
+    const table = { x: 3, z: 5, w: 2, d: 2, rot: 0 };
+    // a 2 wide piece 0.2 ft off the table's right edge snaps so the edges touch
+    const s = snapMove({ x: 5.2, z: 5.1, w: 2, d: 2, rot: 0 }, [table], 14, 12);
+    expect(s.x).toBeCloseTo(5, 5);
+    expect(s.xBy).toBe("piece");
+  });
+
+  it("ignores a piece that is far away along the other axis", () => {
+    const table = { x: 3, z: 1, w: 2, d: 2, rot: 0 };
+    const s = snapMove({ x: 5.2, z: 9, w: 2, d: 2, rot: 0 }, [table], 14, 12);
+    expect(s.x).toBe(5.2);
+  });
+
+  it("does nothing when the threshold is zero", () => {
+    const s = snapMove({ ...sofa, z: 1.6 }, [], 14, 12, 0);
+    expect(s.z).toBe(1.6);
+  });
+
+  it("prefers the wall over a piece when both are about as close", () => {
+    const neighbour = { x: 2.4, z: 5, w: 1, d: 1, rot: 0 };
+    const s = snapMove({ x: 1.2, z: 5, w: 2, d: 2, rot: 0 }, [neighbour], 14, 12);
+    expect(s.xBy).toBe("wall");
+    expect(s.x).toBeCloseTo(1, 5);
   });
 });

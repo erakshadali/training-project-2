@@ -53,6 +53,61 @@ function ball(g: THREE.Object3D, r: number, color: THREE.ColorRepresentation, x:
   return m;
 }
 
+/** A glass-like material for windows and screens. */
+const glassExtra: Extra = { roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.82 };
+
+/** A soft glowing picture for the TV: a teal gradient, a row of tiles and a diagonal sheen. Null outside the browser. */
+function screenTexture(): THREE.CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 144;
+  const g = c.getContext("2d");
+  if (!g) return null;
+  const bg = g.createLinearGradient(0, 0, 256, 144);
+  bg.addColorStop(0, "#143d4a");
+  bg.addColorStop(0.55, "#1c6b73");
+  bg.addColorStop(1, "#0d2a33");
+  g.fillStyle = bg;
+  g.fillRect(0, 0, 256, 144);
+  const glow = g.createRadialGradient(170, 56, 6, 170, 56, 130);
+  glow.addColorStop(0, "rgba(120,230,220,0.55)");
+  glow.addColorStop(1, "rgba(120,230,220,0)");
+  g.fillStyle = glow;
+  g.fillRect(0, 0, 256, 144);
+  g.fillStyle = "rgba(255,255,255,0.16)";
+  for (let i = 0; i < 4; i++) g.fillRect(18 + i * 58, 98, 50, 30);
+  g.fillStyle = "rgba(255,255,255,0.28)";
+  g.fillRect(18, 22, 70, 7);
+  g.fillRect(18, 36, 44, 5);
+  const sheen = g.createLinearGradient(0, 0, 256, 144);
+  sheen.addColorStop(0.35, "rgba(255,255,255,0)");
+  sheen.addColorStop(0.5, "rgba(255,255,255,0.12)");
+  sheen.addColorStop(0.65, "rgba(255,255,255,0)");
+  g.fillStyle = sheen;
+  g.fillRect(0, 0, 256, 144);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** A lit screen panel. The texture belongs to this mesh, so it is released with the model. */
+function screen(g: THREE.Object3D, w: number, h: number, x: number, y: number, z: number) {
+  const tex = screenTexture();
+  const mesh = rbox(
+    g, w, h, 0.012, tex ? "#ffffff" : "#2a8f86", x, y, z, 0.008,
+    tex
+      ? { map: tex, emissive: new THREE.Color("#ffffff"), emissiveMap: tex, emissiveIntensity: 0.7, roughness: 0.25 }
+      : { emissive: new THREE.Color("#1d6f68"), emissiveIntensity: 0.55, roughness: 0.2 },
+  );
+  (mesh.material as THREE.Material).userData.ownsMap = !!tex;
+  return mesh;
+}
+
+const CHROME: Extra = { metalness: 0.85, roughness: 0.25 };
+const STEEL: Extra = { metalness: 0.3, roughness: 0.4 };
+
 const WOOD = "#7a5a3a";
 
 type Build = (g: THREE.Group, p: Parts, d: Dims) => void;
@@ -166,51 +221,109 @@ const BUILD: Record<ArtKind | DecorKind, Build> = {
 
   fridge(g, p, { w, d, h }) {
     for (const sx of [-1, 1]) cyl(g, 0.08, 0.08, 0.12, "#2b3230", sx * (w / 2 - 0.25), 0.06, d / 2 - 0.25);
-    rbox(g, w, h - 0.12, d, p.base, 0, 0.12 + (h - 0.12) / 2, 0, 0.13, { roughness: 0.4, metalness: 0.25 });
-    rbox(g, w + 0.012, 0.03, d + 0.012, p.dark, 0, h * 0.68, 0, 0.012);
-    for (const y of [h * 0.84, h * 0.45]) cyl(g, 0.04, 0.04, 0.8, "#aab6b4", w / 2 - 0.25, y, d / 2 + 0.08, 0, { metalness: 0.8, roughness: 0.25 });
+    const bodyH = h - 0.12;
+    rbox(g, w, bodyH, d - 0.06, p.dark, 0, 0.12 + bodyH / 2, -0.03, 0.12, STEEL);
+    // two doors with a visible gap between them: freezer on top, fridge below
+    const rh = bodyH * 0.7 - 0.03;
+    const fh = bodyH * 0.3 - 0.03;
+    const doorZ = d / 2 - 0.06;
+    rbox(g, w - 0.03, rh, 0.1, p.base, 0, 0.12 + rh / 2, doorZ, 0.1, STEEL);
+    rbox(g, w - 0.03, fh, 0.1, p.base, 0, 0.12 + rh + 0.03 + fh / 2, doorZ, 0.1, STEEL);
+    // tall bar handles near the door edges, on short brackets
+    const hx = w / 2 - 0.22;
+    for (const [y, len] of [[0.12 + rh - 0.75, Math.min(1.5, rh * 0.5)], [0.12 + rh + 0.03 + 0.45, Math.min(0.8, fh * 0.55)]] as const) {
+      cyl(g, 0.035, 0.035, len, "#c4ccca", hx, y, d / 2 + 0.1, 0, CHROME, 14);
+      for (const k of [-1, 1]) cyl(g, 0.02, 0.02, 0.1, "#9aa5a3", hx, y + k * (len / 2 - 0.08), d / 2 + 0.05, Math.PI / 2, CHROME, 10);
+    }
+    // small display and a vent line
+    rbox(g, 0.42, 0.12, 0.02, "#0f1a1c", -w / 2 + 0.55, 0.12 + rh + 0.03 + fh * 0.62, d / 2 - 0.005, 0.01, { emissive: new THREE.Color("#2fd27a"), emissiveIntensity: 0.55 });
+    rbox(g, w * 0.7, 0.025, 0.02, p.dark, 0, 0.2, d / 2 - 0.005, 0.01);
   },
 
   washer(g, p, { w, d, h }) {
-    rbox(g, w, h - 0.08, d, p.base, 0, 0.08 + (h - 0.08) / 2, 0, 0.12, { roughness: 0.4, metalness: 0.2 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.1, 16, 40), mat("#2b3a38"));
-    place(g, ring, 0, h * 0.45, d / 2 + 0.03);
-    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.1, 36), mat("#6fb6c9", { roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) cyl(g, 0.07, 0.07, 0.08, "#2b3230", sx * (w / 2 - 0.2), 0.04, sz * (d / 2 - 0.2));
+    rbox(g, w, h - 0.08, d, p.base, 0, 0.08 + (h - 0.08) / 2, 0, 0.12, STEEL);
+    // control strip across the top: detergent drawer, display, buttons and a dial
+    const sy = h - 0.34;
+    rbox(g, w - 0.1, 0.46, 0.04, p.light, 0, sy, d / 2 + 0.015, 0.03);
+    rbox(g, 0.62, 0.15, 0.03, p.dark, -w / 2 + 0.55, sy, d / 2 + 0.05, 0.015);
+    rbox(g, 0.46, 0.13, 0.02, "#0f1a1c", -w / 2 + 1.1, sy + 0.1, d / 2 + 0.045, 0.01, { emissive: new THREE.Color("#2a8f86"), emissiveIntensity: 0.6 });
+    for (let i = 0; i < 3; i++) ball(g, 0.045, "#2b3a38", -w / 2 + 1.0 + i * 0.16, sy - 0.1, d / 2 + 0.05, 1, 1, 0.5);
+    cyl(g, 0.17, 0.17, 0.06, "#2b3a38", w / 2 - 0.42, sy, d / 2 + 0.06, Math.PI / 2, CHROME, 32);
+    rbox(g, 0.03, 0.1, 0.02, "#e5603a", w / 2 - 0.42, sy + 0.1, d / 2 + 0.095, 0.01);
+    // round door: chrome rim, dark drum seen through tinted glass
+    const cy = (h - 0.65) * 0.5 + 0.08;
+    place(g, new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.07, 14, 44), mat("#c4ccca", CHROME)), 0, cy, d / 2 + 0.035);
+    place(g, new THREE.Mesh(new THREE.TorusGeometry(0.57, 0.06, 14, 44), mat("#2b3a38")), 0, cy, d / 2 + 0.03);
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.06, 36), mat("#1c2a2e", { roughness: 0.6 }));
+    drum.rotation.x = Math.PI / 2;
+    place(g, drum, 0, cy, d / 2 + 0.01, false);
+    const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.05, 36), mat("#7fc2d3", glassExtra));
     glass.rotation.x = Math.PI / 2;
-    place(g, glass, 0, h * 0.45, d / 2 + 0.02, false);
-    rbox(g, w - 0.3, 0.32, 0.06, "#2b3a38", 0, h - 0.3, d / 2 + 0.03, 0.04);
-    ball(g, 0.09, "#e5603a", w / 2 - 0.45, h - 0.3, d / 2 + 0.08);
+    place(g, glass, 0, cy, d / 2 + 0.05, false);
+    rbox(g, 0.06, 0.3, 0.04, "#c4ccca", w / 2 - 0.2, cy, d / 2 + 0.05, 0.02, CHROME);
   },
 
   tv(g, p, { w, h }) {
-    rbox(g, 1.5, 0.07, 0.8, "#161f1d", 0, 0.035, 0, 0.03);
-    cyl(g, 0.07, 0.09, 0.55, "#161f1d", 0, 0.34, 0);
-    rbox(g, w, h - 0.5, 0.1, "#161f1d", 0, 0.5 + (h - 0.5) / 2, 0, 0.04);
-    rbox(g, w - 0.14, h - 0.64, 0.02, "#2a8f86", 0, 0.5 + (h - 0.5) / 2, 0.06, 0.01, { emissive: new THREE.Color("#1d6f68"), emissiveIntensity: 0.55, roughness: 0.2 });
+    const panelH = h - 0.5;
+    const cy = 0.5 + panelH / 2;
+    // flat foot and a short neck
+    rbox(g, 1.7, 0.06, 0.78, "#11171a", 0, 0.03, 0, 0.025, { metalness: 0.5, roughness: 0.35 });
+    rbox(g, 0.34, 0.5, 0.13, "#161d20", 0, 0.3, -0.02, 0.04);
+    // slim back shell, thin bezel, and the lit screen
+    rbox(g, w - 0.12, panelH - 0.1, 0.07, "#1b2326", 0, cy, -0.075, 0.05);
+    rbox(g, w, panelH, 0.07, "#0d1214", 0, cy, 0, 0.035, { roughness: 0.4, metalness: 0.3 });
+    screen(g, w - 0.13, panelH - 0.13, 0, cy, 0.04);
+    ball(g, 0.022, "#ff4d3a", 0, 0.5 + 0.045, 0.045, 1, 1, 0.5, { emissive: new THREE.Color("#ff4d3a"), emissiveIntensity: 0.9 });
   },
 
   ac(g, p, { w, d, h, lift = 7 }) {
-    rbox(g, w, h, d, "#f2f5f6", 0, lift + h / 2, 0, 0.2, { roughness: 0.5 });
-    rbox(g, w - 0.4, 0.07, 0.07, "#7d8a88", 0, lift + 0.2, d / 2 - 0.02, 0.03);
-    rbox(g, w - 0.3, 0.26, 0.03, p.base.clone().lerp(new THREE.Color("#ffffff"), 0.2), 0, lift + h * 0.78, d / 2 + 0.01, 0.03);
-    ball(g, 0.045, "#2fd27a", w / 2 - 0.35, lift + h * 0.78, d / 2 + 0.04, 1, 1, 0.6, { emissive: new THREE.Color("#2fd27a"), emissiveIntensity: 0.9 });
+    // soft white split unit: shell, top intake slits, dark outlet with an angled flap, display and an accent strip
+    rbox(g, w, h, d, "#f3f6f7", 0, lift + h / 2, 0, 0.2, { roughness: 0.4 });
+    for (let i = 0; i < 6; i++) rbox(g, w - 0.8, 0.012, 0.028, "#c3ccce", 0, lift + h + 0.002, -d / 2 + 0.16 + i * 0.1, 0.005);
+    rbox(g, w - 0.5, 0.15, 0.06, "#2b3230", 0, lift + 0.17, d / 2 - 0.03, 0.02);
+    const flap = rbox(g, w - 0.45, 0.035, 0.32, "#eef2f3", 0, lift + 0.12, d / 2 + 0.07, 0.015);
+    flap.rotation.x = 0.45;
+    rbox(g, w - 0.35, 0.03, 0.02, p.base.clone().lerp(new THREE.Color("#ffffff"), 0.2), 0, lift + h * 0.78, d / 2 + 0.005, 0.01);
+    rbox(g, 0.5, 0.11, 0.02, "#0f1a1c", w / 2 - 0.55, lift + h * 0.5, d / 2 + 0.005, 0.01);
+    ball(g, 0.04, "#2fd27a", w / 2 - 0.38, lift + h * 0.5, d / 2 + 0.02, 1, 1, 0.5, { emissive: new THREE.Color("#2fd27a"), emissiveIntensity: 0.95 });
+    ball(g, 0.03, "#ff9a3c", w / 2 - 0.58, lift + h * 0.5, d / 2 + 0.02, 1, 1, 0.5, { emissive: new THREE.Color("#ff9a3c"), emissiveIntensity: 0.8 });
   },
 
   microwave(g, p, { w, d, h }) {
+    // a cabinet with two doors and brass handles
     rbox(g, w, 1.7, d, p.light, 0, 0.85, 0, 0.07);
     rbox(g, w - 0.1, 0.05, d - 0.1, p.dark, 0, 1.72, 0, 0.02);
+    for (const sx of [-1, 1]) {
+      rbox(g, w / 2 - 0.1, 1.45, 0.03, p.base, sx * (w / 4), 0.88, d / 2 + 0.005, 0.02);
+      cyl(g, 0.022, 0.022, 0.4, "#b9a37a", sx * 0.12, 1.3, d / 2 + 0.06, 0, CHROME, 12);
+    }
+    // the oven: window with a handle on the left, control panel with a display and a dial on the right
     const mh = h - 1.75;
-    rbox(g, w, mh, d * 0.9, p.base, 0, 1.75 + mh / 2, 0, 0.1);
-    rbox(g, w * 0.62, mh * 0.78, 0.03, "#141d1b", -w * 0.12, 1.75 + mh / 2, d * 0.45 + 0.02, 0.03, { roughness: 0.15 });
-    ball(g, 0.12, p.dark, w * 0.36, 1.75 + mh * 0.68, d * 0.45 + 0.04, 1, 1, 0.45);
+    const cy = 1.75 + mh / 2;
+    const fz = d * 0.45;
+    rbox(g, w, mh, d * 0.9, p.base, 0, cy, 0, 0.1);
+    rbox(g, w * 0.64, mh * 0.84, 0.03, p.dark, -w * 0.14, cy, fz + 0.012, 0.03);
+    rbox(g, w * 0.56, mh * 0.7, 0.03, "#141d1b", -w * 0.14, cy, fz + 0.03, 0.025, { roughness: 0.12, metalness: 0.4 });
+    cyl(g, 0.022, 0.022, mh * 0.6, "#c4ccca", -w * 0.46, cy, fz + 0.07, 0, CHROME, 12);
+    rbox(g, w * 0.22, mh * 0.84, 0.03, p.light, w * 0.38, cy, fz + 0.012, 0.025);
+    rbox(g, w * 0.16, 0.14, 0.02, "#0f1a1c", w * 0.38, cy + mh * 0.25, fz + 0.035, 0.01, { emissive: new THREE.Color("#e5603a"), emissiveIntensity: 0.7 });
+    cyl(g, 0.12, 0.12, 0.05, p.dark, w * 0.38, cy - mh * 0.12, fz + 0.04, Math.PI / 2, undefined, 28);
+    for (let i = 0; i < 3; i++) ball(g, 0.035, p.dark, w * 0.38 - 0.12 + i * 0.12, cy - mh * 0.34, fz + 0.04, 1, 1, 0.5);
   },
 
   purifier(g, p, { w, d, h }) {
-    rbox(g, w - 0.1, 1.6, d - 0.1, p.light, 0, 0.8, 0, 0.12);
-    const uh = h - 1.6;
-    rbox(g, w, uh, d, p.base, 0, 1.6 + uh / 2, 0, 0.28, { roughness: 0.35 });
-    rbox(g, w * 0.6, uh * 0.3, 0.03, "#ffffff", 0, 1.6 + uh * 0.68, d / 2 + 0.01, 0.02);
-    ball(g, 0.05, "#1f6b5b", 0, 1.6 + uh * 0.2, d / 2 + 0.03, 1, 1, 0.5, { emissive: new THREE.Color("#1f6b5b"), emissiveIntensity: 0.6 });
+    // a rounded tower: base, a front grille of slits, and a top with a glowing ring and a control pad
+    rbox(g, w - 0.1, 0.3, d - 0.1, p.dark, 0, 0.15, 0, 0.1);
+    const bh = h - 0.3;
+    rbox(g, w, bh, d, p.base, 0, 0.3 + bh / 2, 0, 0.3, { roughness: 0.35 });
+    for (let i = 0; i < 9; i++) rbox(g, w * 0.62, 0.035, 0.02, p.dark, 0, 0.55 + i * 0.1, d / 2 - 0.01, 0.01);
+    rbox(g, w * 0.5, 0.1, 0.02, "#ffffff", 0, h - 0.4, d / 2 - 0.005, 0.01);
+    ball(g, 0.04, "#1f6b5b", w * 0.18, h - 0.4, d / 2 + 0.01, 1, 1, 0.5, { emissive: new THREE.Color("#2fd27a"), emissiveIntensity: 0.8 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(w * 0.3, 0.025, 10, 36), mat("#7fe8c8", { emissive: new THREE.Color("#4fd6ae"), emissiveIntensity: 0.9 }));
+    ring.rotation.x = Math.PI / 2;
+    place(g, ring, 0, h + 0.005, 0, false);
+    cyl(g, w * 0.26, w * 0.26, 0.04, p.dark, 0, h - 0.01, 0, 0, undefined, 32);
   },
 
   // ------------------------------- decor -------------------------------
@@ -285,7 +398,12 @@ export function disposeModel(obj: THREE.Object3D) {
     const mesh = o as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
     const m = mesh.material as THREE.Material | THREE.Material[] | undefined;
-    if (Array.isArray(m)) m.forEach((x) => x.dispose());
-    else m?.dispose();
+    const free = (x: THREE.Material) => {
+      // a texture made for one model is released with it; shared product photo textures are not
+      if (x.userData.ownsMap) (x as THREE.MeshStandardMaterial).map?.dispose();
+      x.dispose();
+    };
+    if (Array.isArray(m)) m.forEach(free);
+    else if (m) free(m);
   });
 }
