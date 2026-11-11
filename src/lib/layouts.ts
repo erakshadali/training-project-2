@@ -16,7 +16,8 @@ export const layoutSchema = z
   .object({
     name: z.string().trim().min(1, "Give the layout a name").max(40, "Keep the name under 40 characters"),
     items: z.array(z.object({ pid: z.string().min(1).max(40), x: num(-5, 100), z: num(-5, 100), rot: num(-100, 100) })).max(MAX_ITEMS, `A layout can hold up to ${MAX_ITEMS} pieces`),
-    quad: z.array(z.object({ x: num(0, 6000), y: num(0, 6000) })).length(4, "The floor needs four corners"),
+    // a corner hidden by the edge of the photo is marked outside it, so these may be negative or past the photo edge
+    quad: z.array(z.object({ x: num(-8000, 16000), y: num(-8000, 16000) })).length(4, "The floor needs four corners"),
     W: num(4, 60),
     D: num(4, 60),
     hfov: num(30, 120),

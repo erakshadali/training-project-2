@@ -274,3 +274,37 @@ export function snapMove(fp: Footprint, others: Footprint[], W: number, D: numbe
   const sz = pick(zs, fp.z, threshold);
   return { x: sx ? sx.to : fp.x, z: sz ? sz.to : fp.z, xBy: sx ? sx.by : null, zBy: sz ? sz.by : null };
 }
+
+/* ------------------------------ lens angle ------------------------------ */
+
+/**
+ * Work out how wide the photo's lens is from the shape of the marked floor alone.
+ * The floor is a rectangle, so its two edge directions must be at right angles and of equal length in the real world.
+ * Each fact gives a value for the focal length, assuming the middle of the photo is the middle of the lens. The right-angle
+ * fact is best when the camera stands off to one side; the equal-length fact is best when it faces the back wall squarely,
+ * where the first one divides by zero. Whichever is better conditioned is used. Returns the horizontal angle in degrees,
+ * or null when the dots do not say enough (for example a perfectly flat, straight-on drawing, or careless dots).
+ */
+export function estimateHfov(corners: Pt[], W: number, D: number, imgW: number, imgH: number): number | null {
+  if (W <= 0 || D <= 0 || !validQuad(corners, imgW, imgH)) return null;
+  const H = floorHomography(W, D, corners);
+  if (!H) return null;
+  const cx = imgW / 2, cy = imgH / 2;
+  const [a1, b1, c1] = [H[0], H[3], H[6]];
+  const [a2, b2, c2] = [H[1], H[4], H[7]];
+  const A1 = a1 - cx * c1, B1 = b1 - cy * c1, A2 = a2 - cx * c2, B2 = b2 - cy * c2;
+  // how much perspective each fact can see: c is the depth part of each floor direction
+  const cMax = Math.max(Math.abs(c1), Math.abs(c2));
+  if (cMax * imgW < 1e-9 * (Math.abs(a1) + Math.abs(a2) + Math.abs(b1) + Math.abs(b2) + 1e-12)) return null;
+  const ortho = Math.abs(c1 * c2);
+  const equal = Math.abs(c1 * c1 - c2 * c2);
+  // the two floor directions are at right angles: (K^-1 h1) . (K^-1 h2) = 0
+  // and have the same length: |K^-1 h1| = |K^-1 h2|
+  const f2 = ortho >= equal
+    ? -(A1 * A2 + B1 * B2) / (c1 * c2)
+    : ((A2 * A2 + B2 * B2) - (A1 * A1 + B1 * B1)) / (c1 * c1 - c2 * c2);
+  if (!(f2 > 0) || !Number.isFinite(f2)) return null;
+  const hfov = (2 * Math.atan(imgW / 2 / Math.sqrt(f2)) * 180) / Math.PI;
+  if (hfov < 35 || hfov > 120) return null;
+  return Math.round(hfov);
+}

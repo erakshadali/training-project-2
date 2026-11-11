@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Coffee, Frame, LampFloor, Maximize2, Minimize2, RectangleHorizontal, Save, Sprout } from "lucide-react";
-import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, Magnet, Redo2, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Undo2, Wand2 } from "lucide-react";
+import { ArrowLeft, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, Download, ImagePlus, Lightbulb, Magnet, Pipette, Redo2, RotateCcw, RotateCw, ShoppingBag, Sparkles, Trash2, TriangleAlert, Undo2, Wand2 } from "lucide-react";
 import { ProductArt } from "@/components/ProductArt";
 import dynamic from "next/dynamic";
 import type { Problem, RoomItem, SceneHandle } from "@/components/room/Scene";
@@ -16,10 +16,10 @@ import type { TenureMonths } from "@/data/config";
 import { tenures } from "@/data/config";
 import type { Product } from "@/data/products";
 import { inr, monthlyRent } from "@/lib/pricing";
-import { colorName, crowding, readRoomColors, rgbToHex, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
+import { colorName, crowding, readRoomColors, rgbToHex, sampleColor, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
 import { DECOR, decorProducts, isDecorId, type DecorKind } from "@/lib/roomDecor";
 import { dimsFor, isWallMounted, takesNoFloor } from "@/lib/roomDims";
-import { calibrateFloor, clampInside, outsideBy, overlaps, snapMove, type Calibration, type Pt } from "@/lib/roomMath";
+import { calibrateFloor, clampInside, estimateHfov, outsideBy, overlaps, snapMove, type Calibration, type Pt } from "@/lib/roomMath";
 import { makeSampleRoom } from "@/lib/sampleRoom";
 
 // Three.js is only downloaded when the studio opens, so the start screen stays light.
@@ -125,6 +125,10 @@ export function RoomStudio() {
 
   const [cal, setCal] = useState<Calibration | null>(null);
   const [colors, setColors] = useState<{ floor: RGB; wall: RGB } | null>(null);
+  // what we detected, so a colour the customer picked by hand can be reset
+  const [colorsAuto, setColorsAuto] = useState<{ floor: RGB; wall: RGB } | null>(null);
+  const [pick, setPick] = useState<"floor" | "wall" | null>(null);
+  const photoPx = useRef<{ url: string; data: Uint8ClampedArray; w: number; h: number } | null>(null);
   const [items, setItems] = useState<RoomItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("furniture");
@@ -250,7 +254,9 @@ export function RoomStudio() {
     if (!liveCal) return setError("The four dots need to form a four-sided floor shape. Drag them onto the floor corners in order: back-left, back-right, front-right, front-left.");
     setError("");
     setBusy(true);
-    setColors(await readColorsFromPhoto(photo, quad));
+    const detected = await readColorsFromPhoto(photo, quad);
+    setColors(detected);
+    setColorsAuto(detected);
     setCal(liveCal);
     setItems([]);
     resetHistory();
@@ -290,7 +296,9 @@ export function RoomStudio() {
     setD(String(s.D));
     setHfov(s.hfov);
     setIsSample(s.isSample);
-    setColors(await readColorsFromPhoto(ph, s.quad));
+    const detected = await readColorsFromPhoto(ph, s.quad);
+    setColors(detected);
+    setColorsAuto(detected);
     setCal(nextCal);
     setItems(s.items.filter((i) => ids.has(i.pid)).map((i) => ({ id: newId(), ...i })));
     resetHistory();
@@ -636,6 +644,35 @@ export function RoomStudio() {
     return () => window.removeEventListener("keydown", onKey);
   }, [stage, undo, redo]);
 
+  /** Pixels of the photo at a modest size, kept for tap-to-pick colour. */
+  async function getPhotoPixels() {
+    if (!photo) return null;
+    if (photoPx.current && photoPx.current.url === photo.url) return photoPx.current;
+    const img = await loadImage(photo.url);
+    const k = Math.min(1, 800 / Math.max(photo.w, photo.h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(photo.w * k);
+    c.height = Math.round(photo.h * k);
+    const ctx = c.getContext("2d", { willReadFrequently: true })!;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    photoPx.current = { url: photo.url, data: ctx.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height };
+    return photoPx.current;
+  }
+
+  /** The customer tapped the photo to say what colour the wall or floor really is. */
+  async function pickAt(e: React.MouseEvent<HTMLElement>) {
+    const target = pick;
+    if (!target) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const px = await getPhotoPixels();
+    if (!px) return;
+    const c = sampleColor(px.data, px.w, px.h, fx * px.w, fy * px.h, Math.max(3, Math.round(px.w / 120)));
+    setColors((cur) => (cur ? { ...cur, [target]: c } : cur));
+    setPick(null);
+    say(`${target === "wall" ? "Wall" : "Floor"} colour set to ${colorName(c)}.`);
+  }
+
   async function download() {
     const blob = await sceneRef.current?.exportPng();
     if (!blob) return say("Could not create the picture. Please try again.");
@@ -803,6 +840,15 @@ export function RoomStudio() {
                   brightness={brightness} lightAngle={lightAngle} usePhotos={usePhotos}
                   onSelect={setSelectedId} onMove={dragMove} onDragStart={record}
                 />
+                {pick && (
+                  <>
+                    <button type="button" aria-label={`Tap the ${pick === "wall" ? "wall" : "floor"} in your photo`} onClick={(e) => void pickAt(e)} className="absolute inset-0 z-20 cursor-crosshair rounded-3xl ring-4 ring-coral/80" />
+                    <p role="status" className="absolute inset-x-2 top-2 z-30 flex items-center justify-between gap-2 rounded-full bg-forest px-4 py-2 text-xs font-semibold text-white shadow-md sm:text-sm">
+                      <span>Tap the {pick === "wall" ? "wall" : "floor"} in your photo</span>
+                      <button type="button" onClick={() => setPick(null)} className="rounded-full bg-white/20 px-3 py-1 hover:bg-white/30">Cancel</button>
+                    </p>
+                  </>
+                )}
                 {/* Numbered tags so every piece in the photo matches its row in the list */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
                   {items.map((it, i) => {
@@ -967,12 +1013,23 @@ export function RoomStudio() {
                   </div>
 
                   <div className="rounded-3xl border border-line bg-paper p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">What we read from your photo</p>
-                    <div className="mt-2 flex gap-3">
-                      {([["Floor", colors.floor], ["Walls", colors.wall]] as [string, RGB][]).map(([label, c]) => (
-                        <div key={label} className="flex items-center gap-2 text-sm"><span className="h-8 w-8 rounded-full border border-line" style={{ background: rgbToHex(c) }} aria-hidden /><span><span className="block font-semibold">{label}</span><span className="text-xs text-ink-soft">{colorName(c)}</span></span></div>
-                      ))}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-moss">Colours we match against</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2.5">
+                      {([["Floor", "floor"], ["Walls", "wall"]] as const).map(([label, key]) => {
+                        const c = colors[key];
+                        const changed = !!colorsAuto && rgbToHex(colorsAuto[key]) !== rgbToHex(c);
+                        return (
+                          <div key={key} className="rounded-2xl border border-line p-2.5 text-sm">
+                            <div className="flex items-center gap-2"><span className="h-8 w-8 shrink-0 rounded-full border border-line" style={{ background: rgbToHex(c) }} aria-hidden /><span className="min-w-0"><span className="block font-semibold">{label}</span><span className="block truncate text-xs text-ink-soft">{colorName(c)}{changed ? ", set by you" : ""}</span></span></div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              <button onClick={() => setPick(key)} className="flex items-center gap-1 rounded-full border border-forest px-2.5 py-1 text-xs font-semibold text-forest hover:bg-forest hover:text-white"><Pipette className="h-3 w-3" /> Pick</button>
+                              {changed && <button onClick={() => colorsAuto && setColors((cur) => (cur ? { ...cur, [key]: colorsAuto[key] } : cur))} className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-ink-soft hover:border-moss">Reset</button>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
+                    <p className="mt-2 text-xs text-ink-soft">Not right? Tap Pick, then tap the wall or the floor in your photo.</p>
                   </div>
 
                   {problemCount > 0 && <p className="flex items-start gap-2 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /> {problemCount} {problemCount === 1 ? "piece needs" : "pieces need"} attention: overlapping or outside the floor.</p>}
@@ -1114,6 +1171,7 @@ function FloorStep(props: {
   const { photo, quad, setQuad, W, D, setW, setD, hfov, setHfov, cal, isSample, error, busy, onBack, onNext } = props;
   const box = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState<number | null>(null);
+  const [angleNote, setAngleNote] = useState("");
   const [shownW, setShownW] = useState(360);
   useEffect(() => {
     const el = box.current;
@@ -1125,9 +1183,24 @@ function FloorStep(props: {
   const labels = ["Back left", "Back right", "Front right", "Front left"];
   const Wn = Number(W) || 0, Dn = Number(D) || 0;
 
+  // The photo sits in the middle of a grey border, so a floor corner that the camera cut off can be marked outside the photo.
+  const mx = photo.w * 0.3, my = photo.h * 0.3;
+  const tw = photo.w + 2 * mx, th = photo.h + 2 * my;
   const toImage = (e: React.PointerEvent) => {
     const r = box.current!.getBoundingClientRect();
-    return { x: Math.min(photo.w, Math.max(0, ((e.clientX - r.left) / r.width) * photo.w)), y: Math.min(photo.h, Math.max(0, ((e.clientY - r.top) / r.height) * photo.h)) };
+    const x = ((e.clientX - r.left) / r.width) * tw - mx;
+    const y = ((e.clientY - r.top) / r.height) * th - my;
+    return { x: Math.min(photo.w + mx, Math.max(-mx, x)), y: Math.min(photo.h + my, Math.max(-my, y)) };
+  };
+
+  const detectAngle = () => {
+    const d = estimateHfov(quad, Wn, Dn, photo.w, photo.h);
+    if (d === null) {
+      setAngleNote("Could not tell from these dots. Place all four on the floor corners (outside the photo if a corner is cut off), or pick a preset.");
+    } else {
+      setHfov(d);
+      setAngleNote(`Detected about ${d}°. Check that the red 3 x 3 ft square looks right for the room.`);
+    }
   };
 
   const grid: [Pt, Pt][] = [];
@@ -1139,22 +1212,23 @@ function FloorStep(props: {
     ref3ft = [[cx, cz], [cx + 3, cz], [cx + 3, cz + 3], [cx, cz + 3]].map(([x, z]) => cal.project([x, 0, z]));
   }
   // photo pixels per screen pixel, so dots, labels and lines stay a touchable size even when a tall photo is shown narrow
-  const k = photo.w / shownW;
+  const k = tw / shownW;
   const r = Math.max(10, photo.w / 70, 9 * k);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-moss hover:underline"><ArrowLeft className="h-4 w-4" /> Choose another photo</button>
       <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight">Mark your floor</h1>
-      <p className="mt-1 max-w-2xl text-ink-soft">{isSample ? "The corners of this sample hall are already marked. Check the grid lines, then continue." : "Drag the four dots onto the corners of the floor, in this order: back left, back right, front right, front left. If a corner is hidden behind something, put the dot where it would be."}</p>
+      <p className="mt-1 max-w-2xl text-ink-soft">{isSample ? "The corners of this sample hall are already marked. Check the grid lines, then continue." : "Drag the four dots onto the corners of the floor, in this order: back left, back right, front right, front left. If a corner is hidden behind something, put the dot where it would be. If a corner is cut off by the edge of the photo, drag its dot out into the grey border."}</p>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_20rem]">
-        <div ref={box} className="relative mx-auto w-[min(100%,calc((56dvh)*var(--ar)))] touch-none select-none overflow-hidden rounded-3xl bg-sand lg:w-[min(100%,calc((100dvh_-_15rem)*var(--ar)))]" style={{ aspectRatio: `${photo.w} / ${photo.h}`, "--ar": photo.w / photo.h } as React.CSSProperties}
+        <div ref={box} className="relative mx-auto w-[min(100%,calc((56dvh)*var(--ar)))] touch-none select-none overflow-hidden rounded-3xl bg-sand lg:w-[min(100%,calc((100dvh_-_15rem)*var(--ar)))]" style={{ aspectRatio: `${tw} / ${th}`, "--ar": tw / th } as React.CSSProperties}
           onPointerMove={(e) => { if (active === null) return; const next = [...quad]; next[active] = toImage(e); setQuad(next); }}
           onPointerUp={() => setActive(null)} onPointerCancel={() => setActive(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- local data URL */}
-          <img src={photo.url} alt="Your room" draggable={false} className="absolute inset-0 h-full w-full" />
-          <svg viewBox={`0 0 ${photo.w} ${photo.h}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+          <img src={photo.url} alt="Your room" draggable={false} className="absolute" style={{ left: `${(mx / tw) * 100}%`, top: `${(my / th) * 100}%`, width: `${(photo.w / tw) * 100}%`, height: `${(photo.h / th) * 100}%` }} />
+          <svg viewBox={`${-mx} ${-my} ${tw} ${th}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+            <rect x={0} y={0} width={photo.w} height={photo.h} fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={Math.max(photo.w / 500, 1.2 * k)} strokeDasharray={`${9 * k} ${6 * k}`} />
             <polygon points={quad.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(47,210,122,0.18)" stroke="#2fd27a" strokeWidth={Math.max(photo.w / 300, 1.6 * k)} />
             {grid.map(([a, b], i) => <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(255,255,255,0.55)" strokeWidth={Math.max(photo.w / 700, 0.8 * k)} />)}
             {ref3ft.length === 4 && <polygon points={ref3ft.map((p) => `${p.x},${p.y}`).join(" ")} fill="rgba(194,68,36,0.45)" stroke="#c24424" strokeWidth={Math.max(photo.w / 400, 1.4 * k)} />}
@@ -1180,9 +1254,16 @@ function FloorStep(props: {
           </div>
           <div className="rounded-3xl border border-line bg-paper p-5">
             <h2 className="flex items-center gap-1.5 font-semibold"><Camera className="h-4 w-4 text-moss" /> Photo angle</h2>
-            <input type="range" min={50} max={90} step={1} value={hfov} onChange={(e) => setHfov(Number(e.target.value))} aria-label="Photo angle" className="mt-3 w-full accent-[#c24424]" />
-            <div className="flex justify-between text-[11px] text-ink-soft"><span>Zoomed in</span><span>{hfov}°</span><span>Wide angle</span></div>
-            <p className="mt-2 text-xs text-ink-soft">Leave it alone for normal phone photos. If the red 3 x 3 ft square looks too big or too small for the room, nudge this.</p>
+            <input type="range" min={40} max={110} step={1} value={hfov} onChange={(e) => setHfov(Number(e.target.value))} aria-label="Photo angle" className="mt-3 w-full accent-[#c24424]" />
+            <div className="flex justify-between text-[11px] text-ink-soft"><span>Zoomed in</span><span>{hfov}°</span><span>Ultra-wide</span></div>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Photo angle presets">
+              {([[55, "Zoomed"], [65, "Normal"], [80, "Wide"], [100, "Ultra-wide"]] as const).map(([v, l]) => (
+                <button key={v} onClick={() => { setHfov(v); setAngleNote(""); }} aria-pressed={hfov === v} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${hfov === v ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}>{l}</button>
+              ))}
+            </div>
+            <button onClick={detectAngle} disabled={!cal} className="mt-3 w-full rounded-full border border-forest px-4 py-2 text-sm font-semibold text-forest hover:bg-forest hover:text-white disabled:opacity-40">Detect from my floor</button>
+            {angleNote && <p role="status" className="mt-2 text-xs text-ink-soft">{angleNote}</p>}
+            <p className="mt-2 text-xs text-ink-soft">Normal phone photos are about 65°, wide-angle lenses about 80° and ultra-wide about 100°. Mark the four dots first, then press Detect. The red 3 x 3 ft square should look about right for the room.</p>
           </div>
           {error && <p role="alert" className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral-deep">{error}</p>}
           {!cal && !error && <p className="rounded-2xl bg-sun/25 px-4 py-3 text-sm font-medium text-[#7a5200]">The dots do not form a floor shape yet. Keep them in order and make a four-sided shape.</p>}

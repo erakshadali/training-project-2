@@ -23,6 +23,8 @@ describe("layout validation", () => {
   });
   it("needs exactly four floor corners and sane numbers", () => {
     expect(layoutSchema.safeParse({ ...good, quad: good.quad.slice(0, 3) }).success).toBe(false);
+    // a floor corner cut off by the photo edge can sit outside the photo
+    expect(layoutSchema.safeParse({ ...good, quad: [{ x: 1, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 4 }, { x: -120, y: 410 }] }).success).toBe(true);
     expect(layoutSchema.safeParse({ ...good, W: 500 }).success).toBe(false);
     expect(layoutSchema.safeParse({ ...good, items: [{ pid: "p-1", x: NaN, z: 0, rot: 0 }] }).success).toBe(false);
   });

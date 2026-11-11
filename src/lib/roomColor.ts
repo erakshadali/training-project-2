@@ -61,9 +61,52 @@ export function colorName(rgb: RGB): string {
   return tone + warm;
 }
 
-function median(values: number[]) {
-  const v = [...values].sort((a, b) => a - b);
-  return v[Math.floor(v.length / 2)] ?? 0;
+/**
+ * The colour that most of the pixels share. A median gets pulled by a bright window, a lamp or a curtain when they
+ * cover a big part of the sample, so this finds the busiest colour cell instead and averages the pixels around it.
+ * Blown-out whites and near-blacks are ignored while enough ordinary pixels remain.
+ */
+export function dominantColor(px: RGB[], fallback: RGB): RGB {
+  if (!px.length) return fallback;
+  const labs = px.map((p) => rgbToLab(p));
+  let keep = labs.map((l, i) => i).filter((i) => labs[i][0] > 8 && labs[i][0] < 97);
+  if (keep.length < px.length * 0.25) keep = labs.map((_, i) => i);
+  const CELL = 9;
+  const cells = new Map<string, number>();
+  const keyOf = (l: [number, number, number]) => `${Math.floor(l[0] / CELL)},${Math.floor(l[1] / CELL)},${Math.floor(l[2] / CELL)}`;
+  for (const i of keep) {
+    const k = keyOf(labs[i]);
+    cells.set(k, (cells.get(k) ?? 0) + 1);
+  }
+  // score every cell together with its 26 neighbours, so a colour split across a cell edge still wins
+  let bestKey = "", bestScore = -1;
+  for (const k of cells.keys()) {
+    const [a, b, c] = k.split(",").map(Number);
+    let score = 0;
+    for (let da = -1; da <= 1; da++) for (let db = -1; db <= 1; db++) for (let dc = -1; dc <= 1; dc++) score += cells.get(`${a + da},${b + db},${c + dc}`) ?? 0;
+    if (score > bestScore) { bestScore = score; bestKey = k; }
+  }
+  const [ba, bb, bc] = bestKey.split(",").map(Number);
+  let r = 0, g = 0, bl = 0, n = 0;
+  for (const i of keep) {
+    const [ca, cb, cc] = keyOf(labs[i]).split(",").map(Number);
+    if (Math.abs(ca - ba) <= 1 && Math.abs(cb - bb) <= 1 && Math.abs(cc - bc) <= 1) {
+      r += px[i][0]; g += px[i][1]; bl += px[i][2]; n++;
+    }
+  }
+  return n ? [Math.round(r / n), Math.round(g / n), Math.round(bl / n)] : fallback;
+}
+
+/** The colour at one spot of a photo: the dominant colour of a small square around (x, y). Used for tap-to-pick. */
+export function sampleColor(data: Uint8ClampedArray | number[], width: number, height: number, x: number, y: number, radius = 5): RGB {
+  const px: RGB[] = [];
+  for (let yy = Math.max(0, Math.round(y) - radius); yy <= Math.min(height - 1, Math.round(y) + radius); yy++) {
+    for (let xx = Math.max(0, Math.round(x) - radius); xx <= Math.min(width - 1, Math.round(x) + radius); xx++) {
+      const i = (yy * width + xx) * 4;
+      px.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  }
+  return dominantColor(px, [200, 200, 200]);
 }
 
 function pointInQuad(p: Pt, q: Pt[]) {
@@ -101,8 +144,7 @@ export function readRoomColors(data: Uint8ClampedArray | number[], width: number
   }
   // A very narrow or very high back edge can leave the band empty. Fall back to everything above the floor.
   if (wallPx.length < 12) wallPx.push(...aboveFloor);
-  const pick = (px: RGB[], fallback: RGB): RGB => (px.length ? [median(px.map((p) => p[0])), median(px.map((p) => p[1])), median(px.map((p) => p[2]))] : fallback);
-  return { floor: pick(floorPx, [150, 150, 150]), wall: pick(wallPx, [225, 225, 225]) };
+  return { floor: dominantColor(floorPx, [150, 150, 150]), wall: dominantColor(wallPx, [225, 225, 225]) };
 }
 
 export type ColorScore = { score: number; label: "Great match" | "Good match" | "Weak match"; reason: string };

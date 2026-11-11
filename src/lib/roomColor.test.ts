@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorName, crowding, deltaE, hexToRgb, readRoomColors, rgbToHex, rgbToHsl, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
+import { colorName, crowding, deltaE, dominantColor, hexToRgb, readRoomColors, rgbToHex, rgbToHsl, sampleColor, scoreColor, sizeFit, type RGB } from "@/lib/roomColor";
 
 describe("colour basics", () => {
   it("converts hex to RGB and back", () => {
@@ -115,5 +115,59 @@ describe("sizeFit and crowding", () => {
     expect(crowding([{ w: 7, d: 3 }, { w: 5, d: 6.5 }], 12, 10).verdict).toBe("Getting crowded");
     expect(crowding([{ w: 12, d: 10 }], 12, 10).verdict).toBe("Too crowded");
     expect(crowding([{ w: 3, d: 1, wallMounted: true }], 12, 10).percent).toBe(0);
+  });
+});
+
+describe("dominantColor", () => {
+  const many = (c: RGB, n: number): RGB[] => Array.from({ length: n }, () => c);
+
+  it("returns the fallback when there are no pixels", () => {
+    expect(dominantColor([], [1, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it("is not pulled by a big bright window or a dark curtain", () => {
+    const wall: RGB = [226, 214, 190];
+    const px = [...many(wall, 55), ...many([255, 255, 255], 30), ...many([20, 18, 16], 15)];
+    const got = dominantColor(px, [0, 0, 0]);
+    expect(Math.abs(got[0] - wall[0])).toBeLessThan(6);
+    expect(Math.abs(got[1] - wall[1])).toBeLessThan(6);
+    expect(Math.abs(got[2] - wall[2])).toBeLessThan(6);
+  });
+
+  it("beats a median when two colours are split 45 / 55", () => {
+    // a median of this mix lands between the two colours; the busiest colour is the right answer
+    const paint: RGB = [150, 190, 170];
+    const px = [...many(paint, 55), ...many([240, 235, 225], 45)];
+    expect(dominantColor(px, [0, 0, 0])).toEqual(paint);
+  });
+
+  it("follows a gentle shading across a wall", () => {
+    const px: RGB[] = Array.from({ length: 100 }, (_, i) => [210 + (i % 7), 200 + (i % 5), 180 + (i % 6)] as RGB);
+    const got = dominantColor(px, [0, 0, 0]);
+    expect(got[0]).toBeGreaterThan(209);
+    expect(got[0]).toBeLessThan(217);
+  });
+
+  it("uses everything when nearly all pixels are very bright or very dark", () => {
+    const got = dominantColor(many([255, 255, 255], 20), [0, 0, 0]);
+    expect(got).toEqual([255, 255, 255]);
+  });
+});
+
+describe("sampleColor (tap to pick)", () => {
+  it("reads the colour around the tapped spot and ignores a stray pixel", () => {
+    const w = 40, h = 40;
+    const d = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) { d[i * 4] = 120; d[i * 4 + 1] = 160; d[i * 4 + 2] = 90; d[i * 4 + 3] = 255; }
+    const c = (20 * w + 21) * 4;
+    d[c] = 255; d[c + 1] = 0; d[c + 2] = 0;
+    expect(sampleColor(d, w, h, 20, 20)).toEqual([120, 160, 90]);
+  });
+
+  it("stays inside the picture near an edge", () => {
+    const w = 10, h = 10;
+    const d = new Uint8ClampedArray(w * h * 4).fill(200);
+    expect(sampleColor(d, w, h, 0, 0)).toEqual([200, 200, 200]);
+    expect(sampleColor(d, w, h, 9, 9)).toEqual([200, 200, 200]);
   });
 });

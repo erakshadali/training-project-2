@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calibrateFloor, clampInside, footprintCorners, outsideBy, overlaps, snapMove, validQuad, type Pt, type V3 } from "@/lib/roomMath";
+import { calibrateFloor, clampInside, estimateHfov, footprintCorners, outsideBy, overlaps, snapMove, validQuad, type Pt, type V3 } from "@/lib/roomMath";
 
 /* A ground-truth pinhole camera, built independently from the code under test. */
 function truthCamera(pos: V3, target: V3, imgW: number, imgH: number, hfovDeg: number) {
@@ -155,5 +155,56 @@ describe("snapMove (dragging magnet)", () => {
     const s = snapMove({ x: 1.2, z: 5, w: 2, d: 2, rot: 0 }, [neighbour], 14, 12);
     expect(s.xBy).toBe("wall");
     expect(s.x).toBeCloseTo(1, 5);
+  });
+});
+
+describe("estimateHfov (lens angle from the floor shape)", () => {
+  const cornersFor = (hfov: number, pos: V3, target: V3) => {
+    const cam = truthCamera(pos, target, IMG_W, IMG_H, hfov);
+    return ([[0, 0], [W, 0], [W, D], [0, D]] as [number, number][]).map(([X, Z]) => cam([X, 0, Z]));
+  };
+
+  it("recovers the angle for a normal, a wide and an ultra-wide photo", () => {
+    for (const hfov of [55, 65, 80, 95]) {
+      const corners = cornersFor(hfov, [6.8, 5, 17], [6, 0.8, 4]);
+      const got = estimateHfov(corners, W, D, IMG_W, IMG_H);
+      expect(got, `hfov ${hfov}`).not.toBeNull();
+      expect(Math.abs((got as number) - hfov), `hfov ${hfov}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("works when the camera faces the back wall squarely, like the sample hall", () => {
+    for (const hfov of [55, 65, 90]) {
+      const corners = cornersFor(hfov, [6, 5.6, 20], [6, 0.8, 3.6]);
+      const got = estimateHfov(corners, W, D, IMG_W, IMG_H);
+      expect(got, `hfov ${hfov}`).not.toBeNull();
+      expect(Math.abs((got as number) - hfov), `hfov ${hfov}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("works when the camera stands off to one side", () => {
+    const corners = cornersFor(75, [1.5, 5.5, 18], [7, 0.5, 4]);
+    const got = estimateHfov(corners, W, D, IMG_W, IMG_H);
+    expect(got).not.toBeNull();
+    expect(Math.abs((got as number) - 75)).toBeLessThanOrEqual(3);
+  });
+
+  it("gives a sensible answer or none when the dots are a few pixels off", () => {
+    const corners = cornersFor(65, [6.8, 5, 17], [6, 0.8, 4]).map((p, i) => ({ x: p.x + (i % 2 ? 6 : -6), y: p.y + (i < 2 ? 4 : -4) }));
+    const got = estimateHfov(corners, W, D, IMG_W, IMG_H);
+    if (got !== null) {
+      expect(got).toBeGreaterThanOrEqual(35);
+      expect(got).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it("returns null for a shape that is not a floor", () => {
+    const bad: Pt[] = [{ x: 100, y: 100 }, { x: 500, y: 100 }, { x: 150, y: 300 }, { x: 600, y: 400 }];
+    expect(estimateHfov(bad, W, D, IMG_W, IMG_H)).toBeNull();
+  });
+
+  it("returns null when the photo is straight on, with no depth to read", () => {
+    const straight: Pt[] = [{ x: 300, y: 200 }, { x: 900, y: 200 }, { x: 900, y: 700 }, { x: 300, y: 700 }];
+    expect(estimateHfov(straight, W, D, IMG_W, IMG_H)).toBeNull();
   });
 });
