@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { m } from "framer-motion";
-import { CalendarDays, CheckCircle2, FileText, MapPin, Printer, Truck, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileText, MapPin, Phone, Printer, Truck, XCircle } from "lucide-react";
 import { OrderHistory, OrderTracker, StatusPill } from "@/components/OrderTracker";
 import { useAuth } from "@/context/AuthContext";
 import type { Order } from "@/lib/orders";
@@ -87,8 +87,22 @@ export function OrderConfirmation({ id }: { id: string }) {
           <StatusPill status={order.status} />
         </div>
         <div className="mt-5"><OrderTracker status={order.status} timeline={order.timeline} /></div>
-        {order.partner && order.status === "Out for delivery" && (
-          <p className="mt-5 flex items-center gap-2 rounded-2xl bg-mint px-4 py-3 text-sm font-medium text-forest"><Truck className="h-4 w-4" /> Your delivery is with {order.partner.name}{order.partner.phone ? `, ${order.partner.phone}` : ""}.</p>
+        {order.partner && (order.status === "Out for delivery" || order.status === "Delivered" || order.status === "Closed") && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mint px-4 py-3 text-sm font-medium text-forest">
+            <p className="flex items-center gap-2">
+              <Truck className="h-4 w-4 shrink-0" />
+              <span>{order.status === "Out for delivery" ? "Your delivery is with" : "Delivered by"} <span className="font-semibold">{order.partner.name}</span>.</span>
+            </p>
+            {order.partner.phone && (
+              order.status === "Out for delivery" ? (
+                <a href={`tel:${order.partner.phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1.5 rounded-full bg-forest px-3.5 py-1.5 text-white transition hover:bg-coral">
+                  <Phone className="h-3.5 w-3.5" /> Call {order.partner.phone}
+                </a>
+              ) : (
+                <span className="text-forest/80">{order.partner.phone}</span>
+              )
+            )}
+          </div>
         )}
         <details className="mt-5 text-sm">
           <summary className="cursor-pointer font-semibold text-moss">See the full history</summary>
