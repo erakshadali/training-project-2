@@ -43,15 +43,15 @@ export function Hero() {
             a deposit that comes back to you.
           </p>
 
-          <div className="rise mt-8 flex flex-wrap items-center gap-3" style={delay(0.3)}>
+          <div className="rise mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" style={delay(0.3)}>
             <Link
               href="/products"
-              className="group inline-flex items-center gap-2 rounded-full bg-coral px-6 py-3.5 font-semibold text-white transition hover:bg-coral-deep"
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-coral px-6 py-3.5 font-semibold text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-coral-deep"
             >
               Start renting
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
-            <Link href="/#how-it-works" className="rounded-full border border-white/30 px-6 py-3.5 font-semibold transition hover:bg-white/10">
+            <Link href="/#how-it-works" className="inline-flex items-center justify-center rounded-full border border-white/30 px-6 py-3.5 font-semibold transition hover:bg-white/10">
               See how it works
             </Link>
           </div>
@@ -105,7 +105,7 @@ export function Hero() {
 
 export function RoomStudioBanner() {
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-20">
       <Reveal>
         <div className="relative grid items-center gap-8 overflow-hidden rounded-[2.5rem] bg-forest p-8 text-white sm:p-12 lg:grid-cols-[1.1fr_1fr]">
           <div className="grain absolute inset-0 opacity-20" aria-hidden />
@@ -140,9 +140,10 @@ export function CategoryTiles() {
     { href: "/products?category=appliances", title: "Appliances", sub: "Fridges, washers, TVs, ACs", art: "washer" as const, tint: "#9fb7c4", bg: "bg-sand" },
   ];
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-20">
       <Reveal>
-        <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Shop by category</h2>
+        <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">Browse</p>
+        <h2 className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Shop by category</h2>
         <p className="mt-2 text-ink-soft">Everything you need for a flat, a hostel room or a studio.</p>
       </Reveal>
       <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -150,7 +151,7 @@ export function CategoryTiles() {
           <Reveal key={t.title} delay={i * 0.1}>
             <Link
               href={t.href}
-              className={`group relative flex h-64 items-center overflow-hidden rounded-[2rem] ${t.bg} p-8 transition hover:shadow-[0_24px_50px_-24px_rgba(13,59,51,0.45)]`}
+              className={`group relative flex h-56 items-center overflow-hidden rounded-[2rem] ${t.bg} p-6 transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-24px_rgba(13,59,51,0.45)] sm:h-64 sm:p-8`}
             >
               <div className="relative z-10 max-w-[55%]">
                 <h3 className="font-display text-3xl font-semibold">{t.title}</h3>
@@ -181,7 +182,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-24 sm:px-6">
+    <section id="how-it-works" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-16 sm:px-6 sm:pt-24">
       <Reveal>
         <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">How it works</p>
         <h2 className="font-display mt-2 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -192,7 +193,7 @@ export function HowItWorks() {
         <div className="absolute left-0 right-0 top-9 hidden h-px bg-line md:block" aria-hidden />
         {steps.map((s, i) => (
           <Reveal key={s.title} delay={i * 0.09}>
-            <div className="relative h-full rounded-3xl border border-line bg-paper p-6">
+            <div className="relative h-full rounded-3xl border border-line bg-paper p-6 transition duration-300 hover:-translate-y-1 hover:shadow-lg">
               <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-forest text-white">
                 <s.icon className="h-5 w-5" />
                 <span className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-coral text-xs font-bold">{i + 1}</span>
@@ -212,20 +213,20 @@ export function Featured() {
   const [cat, setCat] = useState<(typeof categories)[number]["id"]>("all");
   const list = products.filter((p) => p.popular && (cat === "all" || p.category === cat)).slice(0, 6);
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 sm:pt-24">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">Most rented</p>
           <h2 className="font-display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Popular right now</h2>
         </Reveal>
-        <div className="flex gap-2" role="tablist" aria-label="Filter popular products">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0" role="tablist" aria-label="Filter popular products">
           {categories.map((c) => (
             <button
               key={c.id}
               role="tab"
               aria-selected={cat === c.id}
               onClick={() => setCat(c.id)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${cat === c.id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${cat === c.id ? "bg-forest text-white" : "bg-sand text-ink-soft hover:bg-mint"}`}
             >
               {c.label}
             </button>
@@ -258,7 +259,7 @@ export function RentVsBuy() {
   const better = totalRent < buyCost;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 sm:pt-24">
       <div className="grid gap-8 overflow-hidden rounded-[2.5rem] bg-sand p-6 sm:p-10 lg:grid-cols-2">
         <Reveal>
           <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">Rent or buy?</p>
@@ -336,9 +337,10 @@ export function Benefits() {
     { icon: CalendarClock, title: "Flexible plans", text: "3, 6 or 12 months. Longer plans cost less each month." },
   ];
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 sm:pt-24">
       <Reveal>
-        <h2 className="font-display max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">Why people rent with us</h2>
+        <p className="text-sm font-semibold uppercase tracking-wide text-coral-deep">Why RentEase</p>
+        <h2 className="font-display mt-2 max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">Why people rent with us</h2>
       </Reveal>
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((b, i) => (
@@ -383,9 +385,10 @@ const faqs = [
 export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section className="mx-auto max-w-3xl px-4 pt-24 sm:px-6">
+    <section className="mx-auto max-w-3xl px-4 pt-16 sm:px-6 sm:pt-24">
       <Reveal>
-        <h2 className="font-display text-center text-3xl font-semibold tracking-tight sm:text-4xl">Questions, answered</h2>
+        <p className="text-center text-sm font-semibold uppercase tracking-wide text-coral-deep">FAQ</p>
+        <h2 className="font-display mt-2 text-center text-3xl font-semibold tracking-tight sm:text-4xl">Questions, answered</h2>
       </Reveal>
       <div className="mt-8 space-y-3">
         {faqs.map((f, i) => {
@@ -426,7 +429,7 @@ export function Faq() {
 
 export function CtaBand() {
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6">
+    <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 sm:pt-24">
       <Reveal>
         <div className="relative overflow-hidden rounded-[2.5rem] bg-coral px-6 py-14 text-center text-white sm:px-12">
           <div className="grain absolute inset-0 opacity-30" aria-hidden />
@@ -434,12 +437,20 @@ export function CtaBand() {
             Furnish your place this weekend
           </h2>
           <p className="relative mx-auto mt-4 max-w-xl text-white/90">Pick your items, choose a delivery day, and we handle the rest.</p>
-          <Link
-            href="/products"
-            className="relative mt-8 inline-flex items-center gap-2 rounded-full bg-forest px-7 py-3.5 font-semibold text-white transition hover:bg-forest-deep"
-          >
-            Browse all products <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="relative mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+            <Link
+              href="/products"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-forest px-7 py-3.5 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-forest-deep"
+            >
+              Browse all products <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/room-studio"
+              className="inline-flex items-center justify-center rounded-full border border-white/50 px-7 py-3.5 font-semibold text-white transition hover:bg-white/10"
+            >
+              Try Room Studio
+            </Link>
+          </div>
         </div>
       </Reveal>
     </section>
